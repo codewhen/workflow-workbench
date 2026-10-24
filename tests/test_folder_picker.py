@@ -63,3 +63,44 @@ class FolderPickerTests(unittest.TestCase):
         ):
             run.return_value = subprocess.CompletedProcess([], 1, "", "")
             self.assertIsNone(picker.choose())
+
+
+class WorkflowPickerTests(unittest.TestCase):
+    def test_original_yaml_path_and_cancellation(self):
+        from release_workbench.infrastructure.folder_picker import WorkflowPicker
+
+        picker = WorkflowPicker()
+        with tempfile.TemporaryDirectory() as directory:
+            file = Path(directory) / "release-workbench.yaml"
+            file.write_text("version: 3\n")
+            with (
+                patch.object(picker, "_command", return_value=["picker"]),
+                patch("release_workbench.infrastructure.folder_picker.subprocess.run") as run,
+            ):
+                run.return_value = subprocess.CompletedProcess([], 0, str(file) + "\n", "")
+                self.assertEqual(picker.choose(), str(file.resolve()))
+                run.return_value = subprocess.CompletedProcess([], 0, "", "")
+                self.assertIsNone(picker.choose())
+                run.return_value = subprocess.CompletedProcess([], 0, directory, "")
+                with self.assertRaisesRegex(ValueError, "no longer available"):
+                    picker.choose()
+
+    def test_native_commands_select_files(self):
+        from release_workbench.infrastructure.folder_picker import WorkflowPicker
+
+        for platform, expected in [
+            ("darwin", "choose file"),
+            ("win32", "OpenFileDialog"),
+            ("linux", "--file-selection"),
+        ]:
+            with (
+                self.subTest(platform=platform),
+                patch("release_workbench.infrastructure.folder_picker.sys.platform", platform),
+                patch(
+                    "release_workbench.infrastructure.folder_picker.shutil.which",
+                    return_value="/bin/zenity",
+                ),
+            ):
+                command = WorkflowPicker._command()
+                self.assertIn(expected, " ".join(command))
+                self.assertNotIn("--directory", command)

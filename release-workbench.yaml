@@ -1,0 +1,158 @@
+version: 3
+name: AirDeck · Production release checklist
+workspace: .
+concurrency: 4
+inputs:
+  compatibility_updated:
+    type: boolean
+    default: false
+  serial:
+    type: string
+    default: ''
+    description: USB phone serial. Auto-detect or enter explicitly.
+  host:
+    type: string
+    default: ''
+    description: Desktop LAN IPv4 reachable from the phone.
+  prepared:
+    type: boolean
+    default: false
+globals: {}
+functions: {}
+graphs:
+  main:
+    cards:
+      - id: start
+        kind: start
+        name: Start
+        config: {}
+      - id: production
+        kind: workspace
+        name: Production release checklist
+        config:
+          path: workflows/release/production.yaml
+          inputs:
+            compatibility_updated:
+              $ref: input:compatibility_updated
+            prepared:
+              $ref: input:prepared
+            serial:
+              $ref: input:serial
+            host:
+              $ref: input:host
+      - id: finish
+        kind: finish
+        name: Finish
+        config:
+          returns: object
+          value:
+            $ref: card:production
+    edges:
+      - id: start:next:production:entry
+        source: start
+        target: production
+        source_port: next
+        target_port: entry
+        kind: flow
+      - id: production:next:finish:entry
+        source: production
+        target: finish
+        source_port: next
+        target_port: entry
+        kind: flow
+layout:
+  main:
+    positions:
+      start:
+        x: 0
+        y: 0
+      production:
+        x: 340
+        y: 0
+      finish:
+        x: 680
+        y: 0
+    areas: []
+environment:
+  QUALITY_OPEN_REPORT: '0'
+secrets:
+  - AIRDECK_KEYSTORE_PASSWORD
+  - AIRDECK_KEY_PASSWORD
+source_paths:
+  - scripts/**/*.py
+  - scripts/**/*.sh
+  - scripts/workflows/release-stages.json
+  - scripts/release/workbench-version.json
+  - workflows/**/*.yaml
+  - compatibility/**/*
+  - firmware/**/*.go
+  - firmware/**/*.m
+  - firmware/**/*.c
+  - firmware/**/*.h
+  - firmware/go.mod
+  - firmware/go.sum
+  - android/app/src/**/*
+  - android/app/build.gradle.kts
+  - android/build.gradle.kts
+  - android/settings.gradle.kts
+  - android/gradle/**/*.toml
+  - android/gradle/**/*.xml
+  - android/gradle/**/*.properties
+  - pc_app/lib/**/*.dart
+  - pc_app/test/**/*.dart
+  - pc_app/integration_test/**/*.dart
+  - pc_app/pubspec.yaml
+  - pc_app/pubspec.lock
+  - pc_app/macos/Runner/**/*
+  - pc_app/windows/runner/**/*
+  - plugin-sdk/**/*.go
+  - plugin-sdk/**/*.py
+  - plugin-sdk/**/*.java
+  - plugin-sdk/**/*.cpp
+  - plugin-sdk/**/*.h
+  - plugin-sdk/**/go.mod
+  - plugin-sdk/**/go.sum
+  - private-plugins/**/*.go
+  - private-plugins/go.mod
+  - private-plugins/go.sum
+report_paths:
+  - coverage/workflow-operations/**/*.json
+  - coverage/quality/**/*
+  - coverage/integration/**/*
+  - coverage/compatibility/**/*
+  - coverage/performance/**/*
+  - coverage/performance-preparation/**/*
+  - coverage/stability/**/*
+  - coverage/windows-verification/**/*
+  - dist/workflows/**/*
+input_detection:
+  argv:
+    - $ref: runtime:python
+    - scripts/release/checklist_hooks.py
+    - --no-pid
+  timeout: 40
+library:
+  folder: AirDeck
+  imports:
+    - workflows/build/all.yaml
+    - workflows/build/android.yaml
+    - workflows/build/macos.yaml
+    - workflows/build/native.yaml
+    - workflows/build/windows-github.yaml
+    - workflows/build/windows-local.yaml
+    - workflows/build/windows.yaml
+    - workflows/release/evidence.yaml
+    - workflows/release/full.yaml
+    - workflows/release/packages.yaml
+    - workflows/release/prerequisites.yaml
+    - workflows/release/production.yaml
+    - workflows/release/validation.yaml
+    - workflows/test/all.yaml
+    - workflows/test/background.yaml
+    - workflows/test/compatibility.yaml
+    - workflows/test/integration.yaml
+    - workflows/test/interactive.yaml
+    - workflows/test/media.yaml
+    - workflows/test/performance.yaml
+    - workflows/test/recovery.yaml
+    - workflows/test/stability.yaml

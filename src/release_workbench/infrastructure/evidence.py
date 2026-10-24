@@ -132,8 +132,9 @@ class EvidenceStore:
         rows = []
         for path, value in state.get("executions", {}).items():
             evidence = f'<a href="{escape(value["log"])}">Log</a>' if value.get("log") else ""
+            reason = "<p>" + escape(value["reason"]) + "</p>" if value.get("reason") else ""
             rows.append(
-                f'<tr><td>{escape(path)}</td><td class="{escape(value["status"])}">{escape(value["status"])}</td><td>{escape(value.get("seconds", ""))}</td><td>{evidence}<pre>{escape(json.dumps(value.get("outcome", value.get("error", "")), indent=2))}</pre></td></tr>'
+                f'<tr><td>{escape(path)}</td><td class="{escape(value["status"])}">{escape(value["status"])}</td><td>{escape(value.get("seconds", ""))}</td><td>{evidence}{reason}<pre>{escape(json.dumps(value.get("outcome", value.get("error", "")), indent=2))}</pre></td></tr>'
             )
         page = '<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Workflow report</title><style>body{font:16px/1.5 system-ui;background:#f5f8f9;color:#182a30;max-width:1200px;margin:auto;padding:24px}table{width:100%;border-collapse:collapse;background:white}td,th{padding:12px;border-bottom:1px solid #cbd7db;text-align:left;vertical-align:top;overflow-wrap:anywhere}pre{white-space:pre-wrap;max-width:65ch;overflow-wrap:anywhere}.passed,.recorded{color:#146040}.failed{color:#a12424}a{color:#165c73}@media(max-width:700px){table,tr,td{display:block}thead{display:none}body{padding:16px}}</style>'
         links = "".join(
@@ -142,6 +143,13 @@ class EvidenceStore:
             if item.get("snapshot")
         )
         page += "<h2>Report attachments</h2><ul>" + links + "</ul>" if links else ""
-        page += f"<h1>{escape(state['name'])}</h1><p>{escape(state['status'])} · {escape(state['run_id'])}</p><p>Workflow fingerprint: {escape(state['fingerprint'])}</p><table><thead><tr><th>Execution</th><th>Status</th><th>Seconds</th><th>Evidence / result</th></tr></thead><tbody>{''.join(rows)}</tbody></table></html>"
+        warning = (
+            "<p>Cards were skipped by the user. This run does not verify the full workflow.</p>"
+            if state.get("user_skips")
+            or state.get("skip_parent")
+            or any(e.get("user_skip") for e in state.get("executions", {}).values())
+            else ""
+        )
+        page += f"<h1>{escape(state['name'])}</h1><p>{escape(state['status'])} · {escape(state['run_id'])}</p>{warning}<p>Workflow fingerprint: {escape(state['fingerprint'])}</p><table><thead><tr><th>Execution</th><th>Status</th><th>Seconds</th><th>Evidence / result</th></tr></thead><tbody>{''.join(rows)}</tbody></table></html>"
         atomic_write(self.directory / "report.html", page)
         return self.directory / "report.html"

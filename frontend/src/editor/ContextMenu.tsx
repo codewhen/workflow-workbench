@@ -5,6 +5,7 @@ export interface MenuAction {
   label: string;
   description?: string;
   category?: string;
+  disabled?: boolean;
 }
 export interface MenuState {
   x: number;
@@ -54,9 +55,11 @@ export function ContextMenu({
   }, [menu.x, menu.y]);
   useEffect(() => {
     const previous = document.activeElement;
-    ref.current
-      ?.querySelector<HTMLElement>("[role=menuitem]")
-      ?.focus({ preventScroll: true });
+    (
+      ref.current?.querySelector<HTMLElement>(
+        "[role=menuitem]:not(:disabled)",
+      ) ?? ref.current
+    )?.focus({ preventScroll: true });
     const close = (e: PointerEvent) => {
       if (!ref.current?.contains(e.target as Node)) onClose();
     };
@@ -73,6 +76,7 @@ export function ContextMenu({
       className="context-menu"
       ref={ref}
       role="menu"
+      tabIndex={-1}
       aria-label={menu.kind === "canvas" ? "Add a card" : "Actions"}
       style={{
         left: 12,
@@ -82,7 +86,9 @@ export function ContextMenu({
       }}
       onKeyDown={(e) => {
         const buttons = [
-            ...ref.current!.querySelectorAll<HTMLElement>("[role=menuitem]"),
+            ...ref.current!.querySelectorAll<HTMLElement>(
+              "[role=menuitem]:not(:disabled)",
+            ),
           ],
           i = buttons.indexOf(document.activeElement as HTMLElement);
         if (e.key === "Escape") {
@@ -108,7 +114,11 @@ export function ContextMenu({
         return (
           <div key={item.id}>
             {heading && <h3>{heading}</h3>}
-            <button role="menuitem" onClick={() => onChoose(item.id)}>
+            <button
+              role="menuitem"
+              disabled={item.disabled}
+              onClick={() => onChoose(item.id)}
+            >
               <strong>{item.label}</strong>
               {item.description && <small>{item.description}</small>}
             </button>

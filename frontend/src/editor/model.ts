@@ -210,6 +210,9 @@ export function removeCard(
       .filter((c) => c.kind === "join" && c.config?.parallel === id)
       .map((c) => c.id),
   ]);
+  next.skip_cards = next.skip_cards?.filter(
+    (x) => x.graph !== graphId || !ids.has(x.card),
+  );
   graph.cards = graph.cards.filter((c) => !ids.has(c.id));
   graph.edges = graph.edges.filter(
     (e) => !ids.has(e.source) && !ids.has(e.target),

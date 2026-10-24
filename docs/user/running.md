@@ -30,6 +30,36 @@ Partial reports identify their starting card and any reused evidence. Passing th
 
 ## Overall and selected inspection
 
+In **Run** view, right-click a card on the Flowchart or in List view and choose
+**Mark to skip** before starting, or **Skip this card** during execution. The
+execution details use the same review. A gentle border pulse previews affected
+visible cards; reduced-motion preferences use a static outline. Review the cards,
+scopes, reasons, continuation and any blocking issues, then choose **Confirm skip**.
+**Cancel** or Escape leaves execution and saved marks unchanged. Execution keeps
+moving during review; a changed preview must be reviewed again.
+
+Explicit marks are saved in YAML as `skip_cards: [{graph: main, card: card-id}]`
+and apply across future invocations and fresh runs. **Marked to skip** badges are
+separate from execution status. The skipped-card summary explains inherited and
+missing-result skips. **Unmark** removes an explicit mark; independently marked
+descendants remain marked. **Unmark for future runs** never replays consumed work.
+
+Skipping Loop, Parallel or Try bypasses its owned scopes and follows Done. Calls
+and workspace cards bypass that invocation without editing shared functions or
+child files. Skipping If bypasses its condition and both branch regions, resuming
+at an unambiguous common continuation; otherwise confirmation is blocked. Start,
+Finish, Return, Break and Continue cannot be explicitly marked.
+
+Skipped cards produce no value. Value wires, nested card references and implicit
+Join dependencies propagate skips transitively. Independent execution successors
+continue. A required Finish or Return losing its result blocks confirmation;
+Returns inside wholly bypassed child scopes do not. Script side effects are not
+inferred. Completed work and side effects are retained. Confirming during a run
+cancels remaining owned work and saves the mark for future runs. Historical
+completed execution pages remain read-only; open the definition to change marks.
+Run details and reports identify skips and their reasons. A passing run containing
+skips does not verify the full workflow.
+
 Overall run shows workflow status, counts, active paths and elapsed/progress information. The canvas/List can follow active work automatically. Selecting a card, dragging the canvas or scrolling away switches to specific-card inspection and disables following. **Overall run** in the left panel returns to the overview and follow-active behavior.
 
 Select a card to see its live logs, event trail, attempts, elapsed time and typed return value. Parent structural/function cards include relevant child evidence; repeated executions have hierarchical paths identifying invocation/iteration. A completed card's details remain inspectable.
@@ -43,7 +73,7 @@ Select a card to see its live logs, event trail, attempts, elapsed time and type
 | waiting for manual evidence | Operator action is needed in the browser prompt |
 | passed / recorded | Successful operation or recorded intervention |
 | failed | Command, contract, timeout or workflow error |
-| skipped | Unselected branch or body that did not execute |
+| skipped | Unselected branch, unexecuted body, or card explicitly skipped by the user |
 | cancelled | Explicit Stop, distinct from failure |
 | blocked | Required evidence or deliberate resume action is missing |
 

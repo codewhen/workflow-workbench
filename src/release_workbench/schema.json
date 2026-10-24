@@ -10,6 +10,26 @@
     "graphs"
   ],
   "properties": {
+    "library": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Import-only Home organization; does not schedule execution.",
+      "properties": {
+        "folder": {
+          "type": "string",
+          "pattern": "^[^/\\\\\\u0000]+(?:/[^/\\\\\\u0000]+)*$"
+        },
+        "imports": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "Additional workflow YAML paths relative to the execution workspace."
+        }
+      }
+    },
     "version": {
       "const": 3
     },
@@ -120,6 +140,28 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "maximum": 120
+        }
+      }
+    },
+    "skip_cards": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "graph",
+          "card"
+        ],
+        "properties": {
+          "graph": {
+            "type": "string",
+            "minLength": 1
+          },
+          "card": {
+            "type": "string",
+            "minLength": 1
+          }
         }
       }
     }

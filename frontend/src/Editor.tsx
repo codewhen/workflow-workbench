@@ -1,3 +1,4 @@
+import { SkipContext, type SkipPlan } from "./run/SkipContext";
 import { WorkspaceLink } from "./cards/WorkspaceLink";
 import {
   allowNavigation,
@@ -144,6 +145,30 @@ function Editor({
   } = useEditorLocation(workflow, !!initial.recovery);
   const leaveTarget = useRef<(() => void) | null>(null);
   const { state, setState } = useRunState(id, setError);
+  const [skipPlan, setSkipPlan] = useState<SkipPlan | null>(null);
+  const [skipPreview, setSkipPreview] = useState<SkipPlan | null>(null);
+  const [skipReviewExpanded, setSkipReviewExpanded] = useState(false);
+  const skipReviewHeading = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    if (!skipPreview) return;
+    const previous = document.activeElement;
+    skipReviewHeading.current?.focus({ preventScroll: true });
+    const cancel = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && !event.defaultPrevented)
+        setSkipPreview(null);
+    };
+    document.addEventListener("keydown", cancel);
+    return () => {
+      document.removeEventListener("keydown", cancel);
+      if (previous instanceof HTMLElement && previous.isConnected)
+        previous.focus({ preventScroll: true });
+    };
+  }, [skipPreview]);
+  const [skipRequest, setSkipRequest] = useState<{
+    graph: string;
+    card: string;
+    unmark?: boolean;
+  } | null>(null);
   const [issues, setIssues] = useState<ValidationIssue[]>([]);
   const [validatedKey, setValidatedKey] = useState<string | null>(null);
   const draftKey = JSON.stringify(yamlDirty ? { yaml } : workflow);
@@ -191,6 +216,50 @@ function Editor({
   const active = [...executions]
     .sort((a, b) => b.path.length - a.path.length)
     .find((e) => ["running", "manual"].includes(e.status));
+  const seenFailures = useRef(new Set<string>());
+  const failureSignature = JSON.stringify(
+    executions
+      .filter((e) => e.status === "failed")
+      .map((e) => [e.path, e.started, e.attempts.length]),
+  );
+  useEffect(() => {
+    if (view !== "run") return;
+    const failed = Object.values(state.executions)
+      .filter(
+        (e) =>
+          e.status === "failed" &&
+          workflow.graphs[e.graph]?.cards.some((c) => c.id === e.card),
+      )
+      .sort((a, b) => b.path.split("/").length - a.path.split("/").length);
+    const newlyFailed: typeof failed = [];
+    for (const execution of failed) {
+      const key = JSON.stringify([
+        state.run_id,
+        execution.path,
+        execution.started,
+        execution.attempts.length,
+      ]);
+      if (!seenFailures.current.has(key)) {
+        seenFailures.current.add(key);
+        newlyFailed.push(execution);
+      }
+    }
+    if (!newlyFailed.length) return;
+    const newest = newlyFailed[0];
+    const failure =
+      failed.find((e) => e.path.startsWith(newest.path + "/")) ?? newest;
+    setFollowing(false);
+    setOverall(false);
+    setHidden(false);
+    setSettings(false);
+    setGraphId(failure.graph, true);
+    setSelected(failure.card);
+    setReveal({
+      graph: failure.graph,
+      card: failure.card,
+      key: "failure:" + state.run_id + ":" + failureSignature,
+    });
+  }, [state.run_id, failureSignature, view]);
   const signature = JSON.stringify(state.manual);
   useEffect(() => {
     seenManual.current.clear();
@@ -348,9 +417,85 @@ function Editor({
       point?: { x: number; y: number };
     },
   ) {
-    if (!editing) return;
+    if (!editing && !(view === "run" && target.kind === "card")) return;
     event.preventDefault();
     setMenu({ ...target, x: event.clientX, y: event.clientY });
+  }
+  useEffect(() => {
+    let cancelled = false;
+    api<SkipPlan>("skip-plan", {}, id)
+      .then((p) => {
+        if (!cancelled) setSkipPlan(p);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [id, saved.revision, state.busy]);
+  function skipReason(cardId?: string) {
+    const card = graph.cards.find((c) => c.id === cardId);
+    if (
+      !card ||
+      ["start", "finish", "return", "break", "continue"].includes(card.kind)
+    )
+      return "This control card cannot be marked to skip.";
+    if (initial.inspection && !state.busy)
+      return "Historical executions are read-only. Open the definition.";
+    if (dirty) return "Save your changes before reviewing skips.";
+    return "";
+  }
+  async function previewSkip(request: {
+    graph: string;
+    card: string;
+    unmark?: boolean;
+  }) {
+    setMenu(null);
+    if (dirty) {
+      setError("Save your changes before reviewing skips.");
+      return;
+    }
+    const result = await act(() =>
+      api<SkipPlan>(
+        "skip-preview",
+        {
+          ...request,
+          revision: initial.inspection ? undefined : saved.revision,
+        },
+        id,
+      ),
+    );
+    if (result) {
+      setSkipRequest(request);
+      setSkipPreview(result);
+      setFollowing(false);
+      setReveal({
+        graph: request.graph,
+        card: request.card,
+        key: "skip-preview:" + result.token,
+      });
+    }
+  }
+  async function confirmSkip() {
+    if (!skipPreview) return;
+    const result = await act(() =>
+      api<{ document: SavedDocument; plan: SkipPlan; state: RunState }>(
+        "skip-confirm",
+        { token: skipPreview.token },
+        id,
+      ),
+    );
+    if (result) {
+      setSaved(result.document);
+      reset(result.document.workflow);
+      setYaml(result.document.yaml);
+      setSkipPlan(result.plan);
+      setState(result.state);
+      setSkipPreview(null);
+      setSkipRequest(null);
+      setNotice("Skip marks saved. Completed work is retained.");
+    } else {
+      setSkipPreview(null);
+    }
   }
   function createCard(kind: string) {
     const meta = catalog.cards.find((c) => c.kind === kind);
@@ -572,7 +717,16 @@ function Editor({
       .map((c) => ({ id: c.kind, label: c.label, category: c.category })),
   ];
   function chooseMenu(action: string) {
-    if (action.startsWith("layout:")) {
+    if (action === "skip" && menu?.id) {
+      if (!skipReason(menu.id))
+        void previewSkip({
+          graph: graphId,
+          card: menu.id,
+          unmark: !!workflow.skip_cards?.some(
+            (x) => x.graph === graphId && x.card === menu.id,
+          ),
+        });
+    } else if (action.startsWith("layout:")) {
       const next = clone(workflow);
       next.layout ??= {};
       next.layout[graphId] ??= { positions: {}, areas: [] };
@@ -826,10 +980,10 @@ function Editor({
         )}
       </nav>
       <div
-        className={`workspace ${hidden ? "panel-hidden" : ""}`}
+        className={`workspace ${hidden && !skipPreview ? "panel-hidden" : ""} ${skipPreview ? "skip-reviewing" : ""}`}
         style={{ "--panel-width": panelWidth + "px" } as React.CSSProperties}
       >
-        {!hidden && (
+        {(!hidden || !!skipPreview) && (
           <>
             <aside
               ref={panel}
@@ -841,7 +995,74 @@ function Editor({
                   : "Card settings"
               }
             >
-              {settings ? (
+              {skipPreview ? (
+                <section
+                  className={`skip-review ${skipReviewExpanded ? "review-expanded" : ""}`}
+                  role="region"
+                  aria-label={
+                    skipRequest?.unmark ? "Review unmark" : "Review card skip"
+                  }
+                >
+                  <h2 tabIndex={-1} ref={skipReviewHeading}>
+                    {skipRequest?.unmark ? "Review unmark" : "Review card skip"}
+                  </h2>
+                  <button
+                    className="skip-review-toggle"
+                    aria-expanded={skipReviewExpanded}
+                    onClick={() => setSkipReviewExpanded((x) => !x)}
+                  >
+                    {skipReviewExpanded
+                      ? "Hide details"
+                      : "Review affected cards"}
+                  </button>
+                  <div className="skip-review-content">
+                    <p>
+                      {skipRequest?.unmark
+                        ? "Remove the explicit mark. Remaining inherited marks are listed below."
+                        : "These cards will be bypassed. Completed work is retained."}
+                    </p>
+                    <div className="skip-review-list">
+                      {[...skipPreview.affected, ...skipPreview.children].map(
+                        (x, i) => (
+                          <p key={i}>
+                            <strong>
+                              {x.scope ?? x.graph} / {x.name}
+                            </strong>
+                            <br />
+                            {x.reasons
+                              .map((r) => r.reason + ": " + r.source)
+                              .join("; ")}
+                          </p>
+                        ),
+                      )}
+                    </div>
+                    {skipPreview.continuations.map((x) => (
+                      <p key={x.graph + x.card}>
+                        Continue after {x.card} at {x.next}.
+                      </p>
+                    ))}
+                    {!!skipPreview.consumed.length && (
+                      <p>
+                        Already completed or skipped work will not run again.
+                      </p>
+                    )}
+                    {skipPreview.blockers.map((x) => (
+                      <p role="alert" key={x}>
+                        {x}
+                      </p>
+                    ))}
+                  </div>
+                  <div className="actions skip-review-actions">
+                    <button onClick={() => setSkipPreview(null)}>Cancel</button>
+                    <button
+                      disabled={working || !!skipPreview.blockers.length}
+                      onClick={() => void confirmSkip()}
+                    >
+                      {skipRequest?.unmark ? "Confirm unmark" : "Confirm skip"}
+                    </button>
+                  </div>
+                </section>
+              ) : settings ? (
                 <WorkflowSettings
                   workflow={workflow}
                   editing={editing}
@@ -878,6 +1099,12 @@ function Editor({
                     }}
                     onStop={(path) =>
                       void act(() => api("stop", { execution: path }, id))
+                    }
+                    onSkip={(execution) =>
+                      void previewSkip({
+                        graph: execution.graph,
+                        card: execution.card,
+                      })
                     }
                   />
                 </>
@@ -1043,35 +1270,39 @@ function Editor({
         )}
         <div className={"graph " + representation} ref={graphRef}>
           {representation === "canvas" ? (
-            <FlowCanvas
-              workflow={workflow}
-              graphId={graphId}
-              catalog={catalog.cards}
-              editing={editing}
-              selected={selected}
-              statuses={statuses}
-              focus={
-                view === "edit"
-                  ? selected
-                  : following && active?.graph === graphId
-                    ? active.card
-                    : null
-              }
-              following={view === "edit" || following}
-              reveal={reveal}
-              onInspect={inspect}
-              onSelect={select}
-              onConnect={wire}
-              onMove={move}
-              onArea={changeArea}
-              onMenu={context}
-              onConfig={config}
-              onOpenFunction={openFunction}
-              onNewFunction={(returns) =>
-                setNewFunction({ returns: returns ?? "json" })
-              }
-              onDetails={select}
-            />
+            <SkipContext.Provider
+              value={{ plan: skipPlan, preview: skipPreview }}
+            >
+              <FlowCanvas
+                workflow={workflow}
+                graphId={graphId}
+                catalog={catalog.cards}
+                editing={editing}
+                selected={selected}
+                statuses={statuses}
+                focus={
+                  view === "edit"
+                    ? selected
+                    : following && active?.graph === graphId
+                      ? active.card
+                      : null
+                }
+                following={view === "edit" || following}
+                reveal={reveal}
+                onInspect={inspect}
+                onSelect={select}
+                onConnect={wire}
+                onMove={move}
+                onArea={changeArea}
+                onMenu={context}
+                onConfig={config}
+                onOpenFunction={openFunction}
+                onNewFunction={(returns) =>
+                  setNewFunction({ returns: returns ?? "json" })
+                }
+                onDetails={select}
+              />
+            </SkipContext.Provider>
           ) : representation === "list" ? (
             <div
               className="card-list"
@@ -1096,7 +1327,7 @@ function Editor({
                     marginLeft: ownershipDepth(graph, c) * 14,
                     flexShrink: 0,
                   }}
-                  className={`list-card state-${statuses[c.id] ?? "pending"}`}
+                  className={`list-card state-${statuses[c.id] ?? "pending"} ${skipPreview?.affected.some((x) => x.graph === graphId && x.card === c.id) ? "skip-preview" : ""}`}
                   aria-pressed={selected === c.id}
                   aria-current={
                     statuses[c.id] === "running" ? "step" : undefined
@@ -1106,11 +1337,17 @@ function Editor({
                   onKeyDown={(e) => {
                     if (e.shiftKey && e.key === "F10") {
                       e.preventDefault();
-                      setMenu({ kind: "card", id: c.id, x: 100, y: 200 });
+                      context(
+                        { preventDefault() {}, clientX: 100, clientY: 200 },
+                        { kind: "card", id: c.id },
+                      );
                     }
                   }}
                 >
                   <strong>{c.name}</strong>
+                  {skipPlan?.affected.some(
+                    (x) => x.graph === graphId && x.card === c.id,
+                  ) && <small className="skip-badge">Marked to skip</small>}
                   <span>
                     {catalog.cards.find((m) => m.kind === c.kind)?.label} ·{" "}
                     {statuses[c.id] ?? "pending"}
@@ -1162,23 +1399,70 @@ function Editor({
           <button onClick={() => setReview("")}>Close review</button>
         </Dialog>
       )}
+      {!!skipPlan?.affected.length && view === "run" && (
+        <details className="skip-summary">
+          <summary>
+            {skipPlan.affected.length}{" "}
+            {skipPlan.affected.length === 1 ? "card" : "cards"} marked to skip
+          </summary>
+          {skipPlan.affected.map((x) => (
+            <p key={x.graph + x.card}>
+              {x.graph} / {x.name}:{" "}
+              {x.reasons
+                .map((r) => r.reason + " (" + r.source + ")")
+                .join("; ")}
+            </p>
+          ))}
+        </details>
+      )}
+      {skipRequest && !skipPreview && error && (
+        <button onClick={() => void previewSkip(skipRequest)}>
+          Refresh skip preview
+        </button>
+      )}
       {menu && (
         <ContextMenu
           menu={menu}
           items={
-            menu.kind === "canvas"
-              ? addItems
-              : menu.kind === "edge"
-                ? [{ id: "delete", label: "Delete connection" }]
-                : menu.kind === "area"
-                  ? [{ id: "delete", label: "Remove layout area" }]
-                  : graph.cards.find((c) => c.id === menu.id)?.kind === "start"
-                    ? [{ id: "disconnect", label: "Disconnect all" }]
-                    : [
-                        { id: "duplicate", label: "Duplicate card" },
-                        { id: "disconnect", label: "Disconnect all" },
-                        { id: "delete", label: "Delete card" },
-                      ]
+            view === "run"
+              ? [
+                  {
+                    id: "skip",
+                    label: workflow.skip_cards?.some(
+                      (x) => x.graph === graphId && x.card === menu.id,
+                    )
+                      ? [
+                          "passed",
+                          "recorded",
+                          "skipped",
+                          "cancelled",
+                          "failed",
+                        ].includes(statuses[menu.id ?? ""] ?? "")
+                        ? "Unmark for future runs"
+                        : "Unmark"
+                      : state.busy
+                        ? "Skip this card"
+                        : "Mark to skip",
+                    disabled: !!skipReason(menu.id),
+                    description:
+                      skipReason(menu.id) ||
+                      "Continue without a result from this card.",
+                  },
+                ]
+              : menu.kind === "canvas"
+                ? addItems
+                : menu.kind === "edge"
+                  ? [{ id: "delete", label: "Delete connection" }]
+                  : menu.kind === "area"
+                    ? [{ id: "delete", label: "Remove layout area" }]
+                    : graph.cards.find((c) => c.id === menu.id)?.kind ===
+                        "start"
+                      ? [{ id: "disconnect", label: "Disconnect all" }]
+                      : [
+                          { id: "duplicate", label: "Duplicate card" },
+                          { id: "disconnect", label: "Disconnect all" },
+                          { id: "delete", label: "Delete card" },
+                        ]
           }
           onChoose={chooseMenu}
           onClose={() => setMenu(null)}

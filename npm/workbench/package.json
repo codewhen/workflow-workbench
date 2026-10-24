@@ -1,6 +1,6 @@
 {
   "name": "@codewhen/workbench",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "description": "Local visual workflow automation with a bundled Python engine",
   "license": "MIT",
   "bin": {
@@ -27,5 +27,5 @@
   "publishConfig": {
     "access": "public"
   },
-  "homepage": "https://github.com/codewhen/release-workbench/tree/v0.18.0/docs"
+  "homepage": "https://github.com/codewhen/release-workbench/tree/main/docs"
 }

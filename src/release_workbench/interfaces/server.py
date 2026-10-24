@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
+import copy
 import difflib
 import json
 import mimetypes
+import secrets
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -13,20 +16,23 @@ from urllib.parse import parse_qs, quote, unquote, urlsplit
 
 from release_workbench.application.compiler import CompilationError
 from release_workbench.application.runtime import Run
+from release_workbench.application.skip_plan import plan_skips
 from release_workbench.application.starters import TEMPLATES
 from release_workbench.domain.cards import REGISTRY
+from release_workbench.domain.models import Workflow
 from release_workbench.infrastructure.documents import (
     MAX_BYTES,
     SCHEMA,
     DocumentStore,
     compile_document,
+    digest,
     document_readiness,
     parse_document,
     render_document,
     validate_document_schema,
 )
 from release_workbench.infrastructure.drafts import DraftStore
-from release_workbench.infrastructure.folder_picker import FolderPicker
+from release_workbench.infrastructure.folder_picker import FolderPicker, WorkflowPicker
 from release_workbench.infrastructure.library import Library
 from release_workbench.infrastructure.services import LocalServices
 from release_workbench.infrastructure.sessions import LocalSessions
@@ -41,12 +47,14 @@ class WorkbenchApplication:
         register_starters(self.library)
         self.services = LocalServices()
         self.folder_picker = FolderPicker()
+        self.workflow_picker = WorkflowPicker()
         self.drafts = DraftStore(self.storage / "drafts")
         self.runs: dict[str, Run] = {}
         self.run_roots: dict[str, Run] = {}
         self.lock = threading.RLock()
         self.sessions = LocalSessions(self.storage / "browser-sessions.json")
         self.token = self.sessions.token
+        self.skip_previews: dict[str, dict[str, Any]] = {}
 
     def selected_run(self, key: str, context: str = "") -> Run | None:
         """Resolve an exact invocation, never alias children by their workflow ID."""
@@ -108,12 +116,120 @@ class WorkbenchApplication:
             }
         )
 
+    def skip_review(self, key: str, data: dict[str, Any], context: str = "") -> dict[str, Any]:
+        record = DocumentStore(self.library.file(key)).read()
+        if data.get("revision") and data["revision"] != record["revision"]:
+            raise ValueError("Workflow changed. Reload before reviewing skips.")
+        run = self.selected_run(key, context)
+        if context and (not run or not run.busy):
+            raise ValueError("Historical completed executions are read-only. Open the definition.")
+        raw = copy.deepcopy(record["workflow"])
+        if run and run.busy:
+            snapshot = copy.deepcopy(run.workflow.raw)
+            snapshot.pop("skip_cards", None)
+            comparison = copy.deepcopy(raw)
+            comparison.pop("skip_cards", None)
+            if comparison != snapshot:
+                raise ValueError("Workflow changed during execution. Reload before changing skips.")
+        marks = raw.get("skip_cards", [])
+        mark = {"graph": data["graph"], "card": data["card"]} if data.get("card") else None
+        if mark:
+            marks = (
+                [x for x in marks if x != mark]
+                if data.get("unmark")
+                else marks + ([] if mark in marks else [mark])
+            )
+        raw.pop("skip_cards", None)
+        workflow = compile_document(raw)
+        plan = plan_skips(workflow, marks)
+
+        # Expand statically resolved workspace children for review, without altering their YAML.
+        def children(
+            file: Path, workflow: Workflow, items: list[dict[str, Any]], seen: set[Path]
+        ) -> list[dict[str, Any]]:
+            result = []
+            for item in items:
+                card = workflow.graphs[item["graph"]].cards[item["card"]]
+                if card.kind != "workspace" or not isinstance(card.config.get("path"), str):
+                    continue
+                child = (
+                    file.parent / workflow.raw.get("workspace", ".") / card.config["path"]
+                ).resolve()
+                if child in seen or not child.is_file():
+                    continue
+                try:
+                    nested = compile_document(DocumentStore(child).read()["workflow"])
+                except (ValueError, OSError):
+                    continue
+                entries = [
+                    {
+                        "graph": g,
+                        "card": c.id,
+                        "name": c.name,
+                        "scope": str(child),
+                        "reasons": [
+                            {
+                                "reason": "child of a skipped parent",
+                                "source": item["graph"] + "/" + item["card"],
+                            }
+                        ],
+                    }
+                    for g, graph in nested.graphs.items()
+                    for c in graph.cards.values()
+                ]
+                result.extend(entries)
+                result.extend(children(child, nested, entries, seen | {child}))
+            return result
+
+        plan["children"].extend(
+            children(
+                self.library.file(key),
+                workflow,
+                plan["affected"] + plan["children"],
+                {self.library.file(key).resolve()},
+            )
+        )
+        relevant = {(x["graph"], x["card"]) for x in plan["affected"]}
+        if mark:
+            relevant.add((mark["graph"], mark["card"]))
+        executions = (
+            sorted(
+                (p, e["status"])
+                for p, e in list(run.evidence.state["executions"].items())
+                if (e["graph"], e["card"]) in relevant
+            )
+            if run and run.busy
+            else []
+        )
+        plan.update(
+            revision=record["revision"],
+            run_id=run.evidence.state["run_id"] if run and run.busy else None,
+            consumed=[
+                p for p, status in executions if status not in {"running", "queued", "manual"}
+            ],
+        )
+        return {
+            "plan": plan,
+            "signature": digest({"plan": plan, "executions": executions}),
+            "request": data,
+        }
+
     def mutation(
         self, route: str, key: str, data: dict[str, Any], context: str = ""
     ) -> dict[str, Any]:
         if (
             context
-            and route not in {"open-workspace", "stop", "pause", "record"}
+            and route
+            not in {
+                "open-workspace",
+                "stop",
+                "pause",
+                "record",
+                "skip",
+                "skip-preview",
+                "skip-confirm",
+                "skip-plan",
+            }
             and not (route == "run" and data.get("selection"))
         ):
             raise ValueError(
@@ -126,6 +242,8 @@ class WorkbenchApplication:
                 raise ValueError("Input discovery is disabled during execution.")
             file = self.library.file(key)
             return discover(DocumentStore(file).read()["workflow"], file.parent, self.services)
+        if route == "pick-file":
+            return {"path": self.workflow_picker.choose()}
         if route == "pick-folder":
             # Native dialogs must not block run controls or library requests.
             return {"path": self.folder_picker.choose()}
@@ -163,7 +281,7 @@ class WorkbenchApplication:
                 from release_workbench.infrastructure.documents import atomic_write
 
                 atomic_write(file, data["yaml"])
-                return entry
+                return self.library.register(file)
             file = self.library.file(key)
             store = DocumentStore(file)
             if route == "open-workspace":
@@ -202,6 +320,49 @@ class WorkbenchApplication:
                     if child_run:
                         url += "?run=" + quote(child_run.evidence.state["run_id"], safe="")
                 return {"id": entry["id"], "url": url}
+            if route in {"skip-preview", "skip-confirm", "skip-plan", "skip"}:
+                if route == "skip":
+                    raise ValueError("Preview and confirm the affected cards before skipping.")
+                run = self.selected_run(key, context)
+                with run.control_lock if run else contextlib.nullcontext():
+                    if route == "skip-plan" and context and run and not run.busy:
+                        return {
+                            **copy.deepcopy(run.skip_plan),
+                            "token": "",
+                            "revision": run.fingerprint,
+                            "run_id": run.evidence.state["run_id"],
+                            "consumed": [],
+                        }
+                    if route in {"skip-preview", "skip-plan"}:
+                        review = self.skip_review(key, data, context)
+                        token = secrets.token_urlsafe(32)
+                        review.update(key=key, context=context)
+                        if len(self.skip_previews) > 128:
+                            self.skip_previews.clear()
+                        self.skip_previews[token] = review
+                        return {**review["plan"], "token": token}
+                    preview = self.skip_previews.pop(data.get("token", ""), None)
+                    if not preview or preview["key"] != key or preview["context"] != context:
+                        raise ValueError("Skip preview expired. Review the affected cards again.")
+                    current = self.skip_review(key, preview["request"], context)
+                    if current["signature"] != preview["signature"]:
+                        raise ValueError(
+                            "Execution changed. Review the affected cards again before confirming."
+                        )
+                    plan = current["plan"]
+                    if plan["blockers"]:
+                        raise ValueError("\n".join(plan["blockers"]))
+                    record = store.read()
+                    raw = copy.deepcopy(record["workflow"])
+                    if plan["marks"]:
+                        raw["skip_cards"] = plan["marks"]
+                    else:
+                        raw.pop("skip_cards", None)
+                    compile_document(raw)
+                    saved = store.save(render_document(raw, record["yaml"]), plan["revision"])
+                    if run and run.busy:
+                        run.apply_skip_plan(plan)
+                    return {"document": saved, "plan": plan, "state": self.state(key, context)}
             if route in ("validate", "save", "draft", "diagnostics"):
                 if any(run.busy for run in self.runs.values()):
                     raise ValueError("Editing is disabled during execution.")
@@ -295,12 +456,22 @@ class WorkbenchApplication:
                 self.run_roots[run.evidence.state["run_id"]] = run
                 run.start()
                 return self.state(key)
-            elif route in {"stop", "pause", "record"}:
+            elif route in {
+                "stop",
+                "pause",
+                "record",
+                "skip",
+                "skip-preview",
+                "skip-confirm",
+                "skip-plan",
+            }:
                 selected = self.selected_run(key, context)
                 if selected is None:
                     raise ValueError("No execution is available.")
                 if route == "stop":
                     selected.stop(data.get("execution"))
+                elif route == "skip":
+                    selected.skip(data["graph"], data["card"], data.get("execution"))
                 elif route == "pause":
                     selected.coordinator.paused = bool(data["paused"])
                 else:

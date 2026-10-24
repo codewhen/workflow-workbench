@@ -114,9 +114,28 @@ export function Home({
           >
             Documentation
           </a>
-          <button onClick={() => input.current?.click()}>
+          <button
+            disabled={working}
+            onClick={() =>
+              void act(async () => {
+                const selected = await api<{ path: string | null }>(
+                  "pick-file",
+                  {},
+                );
+                if (!selected.path) return;
+                const entry = await api<LibraryEntry>("register", {
+                  path: selected.path,
+                });
+                onOpen(entry.id);
+              })
+            }
+          >
             <Upload size={17} />
             Open YAML
+          </button>
+          <button onClick={() => input.current?.click()}>
+            <Upload size={17} />
+            Import a copy
           </button>
           <button onClick={() => setRegister(!register)}>
             Add project or file
@@ -337,16 +356,16 @@ export function Home({
         </Dialog>
       )}
       {importFile && (
-        <Dialog title="Open YAML workflow" onClose={() => setImportFile(null)}>
+        <Dialog title="Import a YAML copy" onClose={() => setImportFile(null)}>
           {error && (
             <p role="alert" className="error">
               {error}
             </p>
           )}
           <p>
-            The browser supplies the file contents. Choose the project where
-            this preview should save and execute it. Existing files are never
-            overwritten.
+            Choose where to save this copy. For workflows with relative child
+            paths, use Open YAML to keep the original project location and
+            import its dependencies. Existing files are never overwritten.
           </p>
           <label>
             Filename

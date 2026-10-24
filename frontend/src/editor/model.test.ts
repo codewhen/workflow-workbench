@@ -173,3 +173,18 @@ describe("immutable flowchart commands", () => {
     );
   });
 });
+
+describe("persisted skip marks", () => {
+  it("removes deleted roots and leaves duplicated cards unmarked", () => {
+    const result = addCard(blank(), "main", meta("wait", { seconds: 0 }));
+    result.workflow.skip_cards = [{ graph: "main", card: result.id }];
+    const copy = duplicateCard(result.workflow, "main", result.id);
+    expect(copy.workflow.skip_cards).toEqual([
+      { graph: "main", card: result.id },
+    ]);
+    expect(copy.workflow.skip_cards?.some((x) => x.card === copy.id)).toBe(
+      false,
+    );
+    expect(removeCard(copy.workflow, "main", result.id).skip_cards).toEqual([]);
+  });
+});

@@ -31,6 +31,9 @@ export async function api<T>(
       "stop",
       "pause",
       "record",
+      "skip-plan",
+      "skip-preview",
+      "skip-confirm",
       "open-workspace",
       "draft",
     ].includes(route)

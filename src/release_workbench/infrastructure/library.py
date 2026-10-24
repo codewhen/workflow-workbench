@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ruamel.yaml.error import YAMLError
+
 from release_workbench.application.starters import starter
 from release_workbench.domain.library_folders import FolderOrganizer
 
@@ -57,9 +59,15 @@ class Library:
         self.save()
 
     def register(
-        self, file: Path, validate: bool = True, *, restore: bool = True
+        self,
+        file: Path,
+        validate: bool = True,
+        *,
+        restore: bool = True,
+        _visited: set[Path] | None = None,
     ) -> dict[str, Any]:
         file = file.resolve()
+        visited = _visited if _visited is not None else set()
         if not restore and str(file) in self.data["hidden_files"]:
             return {}
         if validate:
@@ -73,8 +81,49 @@ class Library:
         if entry is None:
             entry = {"id": key, "path": str(file), "folder": ""}
             self.data["entries"].append(entry)
+        if file not in visited:
+            visited.add(file)
+            self._register_dependencies(file, restore=restore, visited=visited)
         self.save()
         return entry
+
+    def _register_dependencies(self, file: Path, *, restore: bool, visited: set[Path]) -> None:
+        """Discover available child definitions using execution's folder rules."""
+        try:
+            raw = DocumentStore(file).read()["workflow"]
+            validate_document_schema(raw)
+        except (ValueError, OSError, YAMLError):
+            return
+        metadata = raw.get("library", {})
+        folder = metadata.get("folder", "")
+        parts = folder.split("/") if folder else []
+        if parts and all(part.strip() and part not in {".", "..", "*"} for part in parts):
+            for index in range(1, len(parts) + 1):
+                ancestor = "/".join(parts[:index])
+                if ancestor not in self.data["folders"]:
+                    self.data["folders"].append(ancestor)
+            entry = next(item for item in self.data["entries"] if item["path"] == str(file))
+            if not entry["folder"]:
+                entry["folder"] = folder
+        workspace = (file.parent / raw.get("workspace", ".")).resolve()
+        paths = list(metadata.get("imports", []))
+        for graph in raw["graphs"].values():
+            for card in graph["cards"]:
+                if card["kind"] != "workspace":
+                    continue
+                path = card.get("config", {}).get("path")
+                if not isinstance(path, str) or not path.strip():
+                    continue
+                paths.append(path)
+        for path in paths:
+            child = (workspace / path).resolve()
+            if child in visited or not child.is_file():
+                continue
+            try:
+                self.register(child, restore=restore, _visited=visited)
+            except (ValueError, OSError, YAMLError):
+                # An unavailable child must not prevent importing its parent.
+                continue
 
     def removal_keys(self, *, key: str = "", project: str = "") -> set[str]:
         """Resolve registered targets without accepting arbitrary filesystem deletion."""

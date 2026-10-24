@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 const root = path.resolve(__dirname, '../../..');
-const wheel = 'release_workbench-0.18.0-py3-none-any.whl';
+const wheel = 'release_workbench-0.18.1-py3-none-any.whl';
 const bytes = fs.readFileSync(path.join(root, 'dist', wheel));
 const runtime = path.resolve(__dirname, '../runtime');
 fs.rmSync(runtime, { recursive: true, force: true });

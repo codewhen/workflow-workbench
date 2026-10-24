@@ -1,3 +1,4 @@
+import { useSkipCard } from "../run/SkipContext";
 import { WorkspaceLink } from "./WorkspaceLink";
 import { useUpdateNodeInternals } from "@xyflow/react";
 import { useLayoutEffect } from "react";
@@ -89,9 +90,11 @@ export function CardNode({ data }: NodeProps<FlowNode>) {
     updateNode,
     card.id,
   ]);
+  const skip = useSkipCard(data.graphId, card.id);
   return (
     <div
-      className={`flow-card kind-${card.kind} state-${data.status} ${data.selected ? "chosen" : ""}`}
+      data-card-id={card.id}
+      className={`flow-card ${skip.previewing ? "skip-preview" : ""} kind-${card.kind} state-${data.status} ${data.selected ? "chosen" : ""}`}
     >
       {data.status === "running" && (
         <span className="running-border" aria-hidden="true" />
@@ -120,6 +123,16 @@ export function CardNode({ data }: NodeProps<FlowNode>) {
         <span>{meta.label}</span>
       </div>
       <strong className="card-name">{card.name}</strong>
+      {skip.marked && (
+        <small
+          className="skip-badge"
+          title={skip.marked.reasons
+            .map((x) => x.reason + ": " + x.source)
+            .join("; ")}
+        >
+          Marked to skip
+        </small>
+      )}
       {card.owner && (
         <small className="owner-label">
           {card.owner.card} · {card.owner.region}

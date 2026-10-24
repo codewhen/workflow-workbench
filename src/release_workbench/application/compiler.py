@@ -127,6 +127,11 @@ class Compiler:
                 errors.extend(self._parallel_conflicts(workflow, graph))
         if errors:
             raise CompilationError(errors, self._complete_issues(errors))
+        from .skip_plan import plan_skips
+
+        skip_errors = plan_skips(workflow)["blockers"]
+        if skip_errors:
+            raise CompilationError(skip_errors)
         return workflow
 
     def _complete_issues(self, errors: list[str]) -> list[dict[str, str]]:

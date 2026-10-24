@@ -1,6 +1,16 @@
 /* Generated from the public v3 JSON Schema. Do not edit by hand. */
 
 export interface WorkflowDocument {
+  /**
+   * Import-only Home organization; does not schedule execution.
+   */
+  library?: {
+    folder?: string;
+    /**
+     * Additional workflow YAML paths relative to the execution workspace.
+     */
+    imports?: string[];
+  };
   version: 3;
   name: string;
   concurrency?: number;
@@ -49,6 +59,10 @@ export interface WorkflowDocument {
     ];
     timeout?: number;
   };
+  skip_cards?: {
+    graph: string;
+    card: string;
+  }[];
 }
 export interface Parameter {
   type: "void" | "null" | "boolean" | "number" | "string" | "array" | "object" | "json";

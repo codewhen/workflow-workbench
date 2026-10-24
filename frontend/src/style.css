@@ -1458,3 +1458,127 @@ pre {
   margin-top: 8px;
   overflow-wrap: anywhere;
 }
+
+.skip-badge {
+  display: inline-block;
+  padding: 3px 7px;
+  border: 1px dashed #697881;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #47545d;
+  background: #f4f6f6;
+}
+.skip-preview {
+  outline: 3px solid #498b8b;
+  outline-offset: 4px;
+  animation: skip-pulse 1.6s ease-in-out infinite;
+}
+@keyframes skip-pulse {
+  50% {
+    outline-color: #aacccc;
+    outline-offset: 7px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skip-preview {
+    animation: none;
+  }
+}
+.skip-review-list {
+  max-height: 40vh;
+  overflow: auto;
+  padding: 0 8px;
+}
+.skip-summary {
+  padding: 10px 18px;
+  max-height: 25vh;
+  overflow: auto;
+}
+
+.workspace.skip-reviewing > aside {
+  padding: 0;
+  overflow: hidden;
+}
+.skip-review {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.skip-review h2 {
+  margin: 0;
+  padding: 24px 24px 12px;
+  font-size: 22px;
+}
+.skip-review-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 0 24px 16px;
+}
+.skip-review-content > p:first-child {
+  margin-top: 0;
+}
+.skip-review .skip-review-list {
+  max-height: none;
+  overflow: visible;
+  padding: 0;
+}
+.skip-review-actions {
+  flex-shrink: 0;
+  padding: 16px 24px;
+  border-top: 1px solid var(--line);
+  background: white;
+}
+@media (max-width: 700px) {
+  .workspace.skip-reviewing {
+    flex-direction: column;
+  }
+  .workspace.skip-reviewing > aside {
+    height: 34dvh;
+    max-height: 320px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .skip-review h2 {
+    padding: 12px 16px 8px;
+    font-size: 18px;
+  }
+  .skip-review-content {
+    padding: 0 16px 8px;
+  }
+  .skip-review-actions {
+    padding: 8px 16px;
+  }
+}
+.skip-review-toggle {
+  display: none;
+}
+@media (max-width: 700px) {
+  .workspace.skip-reviewing > aside {
+    height: auto;
+    max-height: 34dvh;
+  }
+  .skip-review {
+    height: auto;
+    max-height: 34dvh;
+  }
+  .skip-review h2 {
+    padding-bottom: 0;
+  }
+  .skip-review-toggle {
+    display: block;
+    align-self: flex-start;
+    margin: 0 8px;
+    border: 0;
+    color: var(--teal);
+    background: none;
+  }
+  .skip-review-content {
+    display: none;
+  }
+  .review-expanded .skip-review-content {
+    display: block;
+    overflow: auto;
+  }
+}

@@ -1,0 +1,330 @@
+version: 3
+name: AirDeck · Full tests and builds
+workspace: ../..
+concurrency: 4
+inputs:
+  compatibility_updated:
+    type: boolean
+    default: false
+  serial:
+    type: string
+    default: ''
+    description: USB phone serial. Auto-detect or enter explicitly.
+  host:
+    type: string
+    default: ''
+    description: Desktop LAN IPv4 reachable from the phone.
+  prepared:
+    type: boolean
+    default: false
+  platforms:
+    type: json
+    default:
+  windows_mode:
+    type: string
+    default: ''
+  git_ref:
+    type: string
+    default: master
+globals: {}
+functions:
+  already-current:
+    name: Already Current
+    graph: already-current
+    inputs:
+      compatibility_updated:
+        type: boolean
+    returns: boolean
+  devices-prepared:
+    name: Devices Prepared
+    graph: devices-prepared
+    inputs:
+      prepared:
+        type: boolean
+    returns: boolean
+graphs:
+  main:
+    cards:
+      - id: start
+        kind: start
+        name: Start
+        config: {}
+      - id: compatibility-current
+        kind: if
+        name: Compatibility already updated by parent?
+        config:
+          function: already-current
+        inputs:
+          compatibility_updated:
+            $ref: input:compatibility_updated
+      - id: sync
+        kind: program
+        name: Update compatibility constants
+        config:
+          argv:
+            - $ref: runtime:python
+            - scripts/workflows/operations.py
+            - execute
+            - sync
+          capture: json
+        inputs: {}
+        settings:
+          timeout: 3600
+          resources:
+            - android
+            - flutter
+            - firmware
+          interactive: false
+      - id: prepared
+        kind: if
+        name: Devices already prepared?
+        config:
+          function: devices-prepared
+        inputs:
+          prepared:
+            $ref: input:prepared
+      - id: phone-ready
+        kind: manual
+        name: Prepare phone and desktop
+        config:
+          mode: approval
+          instructions: Connect and unlock the USB phone with debugging 
+            authorized. Confirm the selected serial and LAN address. Grant 
+            native input permissions and leave desktop and phone untouched 
+            during this run. Do not record credentials.
+      - id: tests
+        kind: workspace
+        name: Run tests
+        config:
+          path: workflows/test/all.yaml
+          inputs:
+            compatibility_updated: true
+            prepared: true
+            serial:
+              $ref: input:serial
+            host:
+              $ref: input:host
+      - id: builds
+        kind: workspace
+        name: Build selected packages
+        config:
+          path: workflows/build/all.yaml
+          inputs:
+            compatibility_updated: true
+            platforms:
+              $ref: input:platforms
+            windows_mode:
+              $ref: input:windows_mode
+            git_ref:
+              $ref: input:git_ref
+      - id: finish
+        kind: finish
+        name: Finish
+        config:
+          returns: object
+          value:
+            $ref: card:builds
+    edges:
+      - id: start:next:compatibility-current:entry
+        source: start
+        target: compatibility-current
+        source_port: next
+        target_port: entry
+        kind: flow
+      - id: compatibility-current:false:sync:entry
+        source: compatibility-current
+        target: sync
+        source_port: 'false'
+        target_port: entry
+        kind: flow
+      - id: compatibility-current:true:prepared:entry
+        source: compatibility-current
+        target: prepared
+        source_port: 'true'
+        target_port: entry
+        kind: flow
+      - id: sync:next:prepared:entry
+        source: sync
+        target: prepared
+        source_port: next
+        target_port: entry
+        kind: flow
+      - id: prepared:false:phone-ready:entry
+        source: prepared
+        target: phone-ready
+        source_port: 'false'
+        target_port: entry
+        kind: flow
+      - id: prepared:true:tests:entry
+        source: prepared
+        target: tests
+        source_port: 'true'
+        target_port: entry
+        kind: flow
+      - id: phone-ready:next:tests:entry
+        source: phone-ready
+        target: tests
+        source_port: next
+        target_port: entry
+        kind: flow
+      - id: tests:next:builds:entry
+        source: tests
+        target: builds
+        source_port: next
+        target_port: entry
+        kind: flow
+      - id: builds:next:finish:entry
+        source: builds
+        target: finish
+        source_port: next
+        target_port: entry
+        kind: flow
+  already-current:
+    cards:
+      - id: start
+        kind: start
+        name: Start
+        config: {}
+      - id: return
+        kind: return
+        name: Return
+        config:
+          returns: boolean
+          value:
+            $ref: input:compatibility_updated
+    edges:
+      - id: start:next:return:entry
+        source: start
+        target: return
+        source_port: next
+        target_port: entry
+        kind: flow
+  devices-prepared:
+    cards:
+      - id: start
+        kind: start
+        name: Start
+        config: {}
+      - id: return
+        kind: return
+        name: Return
+        config:
+          returns: boolean
+          value:
+            $ref: input:prepared
+    edges:
+      - id: start:next:return:entry
+        source: start
+        target: return
+        source_port: next
+        target_port: entry
+        kind: flow
+layout:
+  main:
+    positions:
+      start:
+        x: 0
+        y: 0
+      compatibility-current:
+        x: 340
+        y: 0
+      sync:
+        x: 680
+        y: 0
+      prepared:
+        x: 1020
+        y: 0
+      phone-ready:
+        x: 1360
+        y: 0
+      tests:
+        x: 1700
+        y: 0
+      builds:
+        x: 2040
+        y: 0
+      finish:
+        x: 2380
+        y: 0
+    areas: []
+  already-current:
+    positions:
+      start:
+        x: 0
+        y: 0
+      return:
+        x: 340
+        y: 0
+    areas: []
+  devices-prepared:
+    positions:
+      start:
+        x: 0
+        y: 0
+      return:
+        x: 340
+        y: 0
+    areas: []
+environment:
+  QUALITY_OPEN_REPORT: '0'
+secrets:
+  - AIRDECK_KEYSTORE_PASSWORD
+  - AIRDECK_KEY_PASSWORD
+source_paths:
+  - scripts/**/*.py
+  - scripts/**/*.sh
+  - scripts/workflows/release-stages.json
+  - scripts/release/workbench-version.json
+  - workflows/**/*.yaml
+  - compatibility/**/*
+  - firmware/**/*.go
+  - firmware/**/*.m
+  - firmware/**/*.c
+  - firmware/**/*.h
+  - firmware/go.mod
+  - firmware/go.sum
+  - android/app/src/**/*
+  - android/app/build.gradle.kts
+  - android/build.gradle.kts
+  - android/settings.gradle.kts
+  - android/gradle/**/*.toml
+  - android/gradle/**/*.xml
+  - android/gradle/**/*.properties
+  - pc_app/lib/**/*.dart
+  - pc_app/test/**/*.dart
+  - pc_app/integration_test/**/*.dart
+  - pc_app/pubspec.yaml
+  - pc_app/pubspec.lock
+  - pc_app/macos/Runner/**/*
+  - pc_app/windows/runner/**/*
+  - plugin-sdk/**/*.go
+  - plugin-sdk/**/*.py
+  - plugin-sdk/**/*.java
+  - plugin-sdk/**/*.cpp
+  - plugin-sdk/**/*.h
+  - plugin-sdk/**/go.mod
+  - plugin-sdk/**/go.sum
+  - private-plugins/**/*.go
+  - private-plugins/go.mod
+  - private-plugins/go.sum
+report_paths:
+  - coverage/workflow-operations/**/*.json
+  - coverage/quality/**/*
+  - coverage/integration/**/*
+  - coverage/compatibility/**/*
+  - coverage/performance/**/*
+  - coverage/performance-preparation/**/*
+  - coverage/stability/**/*
+  - coverage/windows-verification/**/*
+  - dist/workflows/**/*
+input_detection:
+  argv:
+    - $ref: runtime:python
+    - scripts/release/checklist_hooks.py
+    - --no-pid
+  timeout: 40
+library:
+  folder: AirDeck/Release
+skip_cards:
+  - graph: main
+    card: sync

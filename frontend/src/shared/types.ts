@@ -79,6 +79,8 @@ export interface Library {
   entries: LibraryEntry[];
 }
 export interface Execution {
+  user_skip?: boolean;
+  reason?: string;
   child_report?: string;
   child_status?: string;
   child_active?: string[];
@@ -106,6 +108,7 @@ export interface ManualRequest {
   mode: string;
 }
 export interface RunState {
+  user_skips?: { graph: string; card: string }[];
   input_context?: {
     source_run: string;
     results: Record<string, { type: string; value?: unknown }>;

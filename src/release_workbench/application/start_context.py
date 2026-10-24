@@ -15,6 +15,8 @@ if TYPE_CHECKING:
 
 def compatible(state: dict[str, Any], fingerprint: str) -> bool:
     """Require identical workflow, source, inputs, secrets and workspace."""
+    if state.get("skip_plan_changed"):
+        return False
     if state.get("base_fingerprint"):
         return state["base_fingerprint"] == fingerprint
     selection = state.get("selection")

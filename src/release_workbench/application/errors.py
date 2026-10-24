@@ -1,6 +1,12 @@
 """Application control failures; cancellation remains asyncio.CancelledError."""
 
+import asyncio
+
 from release_workbench.domain.values import ContractError
+
+
+class SkipRequested(asyncio.CancelledError):
+    """Cancel owned work while allowing its enclosing card to continue."""
 
 
 class ExecutionFailure(ContractError):

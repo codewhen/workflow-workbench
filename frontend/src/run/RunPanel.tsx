@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { RunState, Execution } from "../shared/types";
 export function RunPanel({
   state,
@@ -6,6 +7,7 @@ export function RunPanel({
   overall,
   onSelect,
   onStop,
+  onSkip,
   onOverall,
 }: {
   state: RunState;
@@ -14,6 +16,7 @@ export function RunPanel({
   overall: boolean;
   onSelect: (id: string, graph: string) => void;
   onStop: (path?: string) => void;
+  onSkip: (execution: Execution) => void;
   onOverall: () => void;
 }) {
   const executions = Object.values(state.executions);
@@ -75,6 +78,12 @@ export function RunPanel({
         ).replaceAll("_", " ")}
       </p>
       {overall && state.error && <p className="error">{state.error}</p>}
+      {(!!state.user_skips?.length || executions.some((e) => e.user_skip)) && (
+        <p role="status">
+          Cards were skipped by the user. This run does not verify the full
+          workflow.
+        </p>
+      )}
       {overall && (
         <>
           <p>
@@ -112,6 +121,7 @@ export function RunPanel({
           execution={e}
           state={state}
           onStop={() => onStop(e.path)}
+          onSkip={() => onSkip(e)}
           expanded={!overall}
         />
       ))}
@@ -133,13 +143,17 @@ function ExecutionView({
   execution: e,
   state,
   onStop,
+  onSkip,
   expanded,
 }: {
   expanded: boolean;
   execution: Execution;
   state: RunState;
   onStop: () => void;
+  onSkip: () => void;
 }) {
+  const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
+  const [copyError, setCopyError] = useState(false);
   const elapsed = e.seconds ?? Math.max(0, Date.now() / 1000 - e.started);
   const progress = e.progress;
   const children = expanded
@@ -163,6 +177,17 @@ function ExecutionView({
     )
     .join("\n")
     .slice(-16000);
+  const logOutput = expanded ? output : (e.tail ?? "");
+  async function copyLogs() {
+    setCopyError(false);
+    setCopiedOutput(null);
+    try {
+      await navigator.clipboard.writeText(logOutput);
+      setCopiedOutput(logOutput);
+    } catch {
+      setCopyError(true);
+    }
+  }
   return (
     <details
       className="execution-evidence"
@@ -224,6 +249,18 @@ function ExecutionView({
       {["running", "manual"].includes(e.status) && (
         <button onClick={onStop}>Stop this job</button>
       )}
+      {state.busy &&
+        ["running", "manual", "queued"].includes(e.status) &&
+        !["start", "finish", "return", "break", "continue"].includes(
+          e.kind,
+        ) && (
+          <button type="button" onClick={onSkip}>
+            Skip this card
+          </button>
+        )}
+      {e.status === "skipped" && (
+        <p>Card skipped. No result was produced. {e.reason}</p>
+      )}
       {e.child_status && <p>Child workflow: {e.child_status}</p>}
       {!!e.child_active?.length && (
         <p>Child activity: {e.child_active.join(", ")}</p>
@@ -248,6 +285,21 @@ function ExecutionView({
         </a>
       )}
       <h3>Live output</h3>
+      <button
+        type="button"
+        onClick={copyLogs}
+        disabled={!logOutput}
+        aria-label={"Copy logs for " + e.name}
+      >
+        Copy logs
+      </button>
+      <span role="status">
+        {copyError
+          ? " Could not copy logs. Select the output below and copy manually."
+          : copiedOutput === logOutput
+            ? " Logs copied."
+            : ""}
+      </span>
       <pre className="logs" aria-label={e.name + " live output"}>
         {expanded
           ? output || "No log output yet."

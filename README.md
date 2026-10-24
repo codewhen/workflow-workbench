@@ -2,7 +2,7 @@
 
 A free, MIT-licensed local automation workbench. Build flowcharts in the browser, keep them in YAML, execute them with Python, and inspect live output and saved HTML/JSON evidence.
 
-**Stable release 0.18.0 uses workflow schema v3.** Earlier workflow schemas are not converted automatically. Keep their files and historical evidence separate.
+**Stable release 0.18.1 uses workflow schema v3.** Earlier workflow schemas are not converted automatically. Keep their files and historical evidence separate.
 
 ## Install and run
 
@@ -23,13 +23,26 @@ For a Python-only installation, download a wheel and its checksum from [GitHub R
 
 ```bash
 python3 -m venv .venv-workbench
-.venv-workbench/bin/python -m pip install ./release_workbench-0.18.0-py3-none-any.whl
+.venv-workbench/bin/python -m pip install ./release_workbench-0.18.1-py3-none-any.whl
 .venv-workbench/bin/workbench create --port 3105
 ```
 
 On Windows use `.venv-workbench\Scripts\python.exe` and `.venv-workbench\Scripts\workbench.exe`. Native Windows acceptance is **unverified**. Bash cards additionally require Bash on any platform.
 
 Open `http://127.0.0.1:3105/`. Add projects or existing v3 YAML files to Home. Opening a workflow shows Run view; commands execute only after Run all. Change to Edit to configure cards. Saving configuration does not run commands.
+
+Adding or importing a workflow also adds available External workspace dependencies
+to the library, recursively. Child YAML paths resolve from the parent workflow's
+`workspace` folder, relative to its YAML file, just as they do during execution.
+Existing files stay in place; shared dependencies are listed once and cycles do
+not repeat imports. Missing, invalid or runtime-resolved child paths are skipped;
+re-add the parent after those files become available.
+
+Workflow YAML can declare `library.folder` (for example, `AirDeck/Test`) to
+suggest a Home folder when first added. `library.imports` lists additional YAML
+paths relative to the execution workspace, so a root workflow can import a whole
+project without executing those workflows. Missing folders are created
+automatically; re-importing preserves entries already moved to another folder.
 
 ## Read the complete manual
 
@@ -122,7 +135,7 @@ updates, removal and troubleshooting.
 For a Python-only tool installation from a downloaded wheel:
 
 ```bash
-uv tool install ./release_workbench-0.18.0-py3-none-any.whl
+uv tool install ./release_workbench-0.18.1-py3-none-any.whl
 workbench
 ```
 
@@ -130,6 +143,26 @@ See [npm exec documentation](https://docs.npmjs.com/cli/commands/npm-exec/)
 and [uv tool installation](https://docs.astral.sh/uv/guides/tools/).
 
 ## Build from source
+
+Run this checkout locally with one command (Python 3.11+, Node.js 22+ and npm):
+
+```bash
+python3 run_local.py
+```
+
+On Windows use `python run_local.py`. The script creates/reuses `.venv`, installs
+Python and npm dependencies when their manifests change, builds the frontend and
+offline manual, and opens [localhost:3110](http://127.0.0.1:3110/). The first run
+needs internet access for dependencies. Local library/run data stays in the
+ignored `.workbench/` directory. Stop with Ctrl+C; rerun to rebuild source changes.
+
+To open another project or choose a port:
+
+```bash
+python3 run_local.py --project ../air_mouse --port 3111 --no-open
+```
+
+For manual setup, development checks, or distribution builds:
 
 ```bash
 python3 -m venv .venv

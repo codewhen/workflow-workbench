@@ -157,14 +157,18 @@ class Frame:
         if card.settings.get("interactive"):
             resources.add("desktop")
         entry = self.run.evidence.state["executions"][self.path]
-        entry["status"] = "queued"
+        with self.run.control_lock:
+            self.check()
+            entry["status"] = "queued"
         async with self.run.coordinator.slot(
             self.run.evidence.state["run_id"] + "/" + self.path,
             resources,
             card.settings.get("exclusive", False),
             self.check,
         ):
-            entry["status"] = "running"
+            with self.run.control_lock:
+                self.check()
+                entry["status"] = "running"
             return await EXECUTORS[card.kind].execute(card, self)
 
     async def operation(self, card: Card) -> Any:
@@ -183,7 +187,9 @@ class Frame:
             "mode": mode,
             "instructions": card.config.get("instructions", ""),
         }
-        self.run.evidence.state["executions"][self.path]["status"] = "manual"
+        with self.run.control_lock:
+            self.check()
+            self.run.evidence.state["executions"][self.path]["status"] = "manual"
         self.run.evidence.emit("manual_requested", self.path, mode=mode)
         self.run.evidence.save()
         try:
@@ -268,6 +274,7 @@ class Frame:
                         self.run.evidence.state["manual"].pop(key, None)
                 await self.run.clock.sleep(0.03)
             code = await task
+            self.check()
             entry["child_status"] = child.evidence.state["status"]
             entry["child_active"] = []
             if code == 130:
@@ -284,7 +291,12 @@ class Frame:
             return Outcome(TypedValue.from_dict(child.evidence.state["result"]))
         finally:
             if not task.done():
-                child.stop()
+                if self.run.evidence.state.get("skip_parent") or any(
+                    self.path == p or self.path.startswith(p + "/") for p in self.run.skipped_paths
+                ):
+                    child.bypass("Child of skipped parent " + self.path)
+                else:
+                    child.stop()
                 await asyncio.gather(task, return_exceptions=True)
             unsubscribe()
             for key in list(self.run.evidence.state["manual"]):
