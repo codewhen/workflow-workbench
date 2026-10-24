@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "release-workbench"
-version = "0.18.0"
+version = "0.18.1"
 description = "Local workflow canvas, parallel test runner and release evidence workbench"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -14,7 +14,7 @@ dependencies = ["ruamel.yaml>=0.18,<0.20", "jsonschema>=4.23,<5", "psutil>=6,<8"
 
 [project.urls]
 Repository = "https://github.com/codewhen/release-workbench"
-Documentation = "https://github.com/codewhen/release-workbench/tree/v0.18.0/docs"
+Documentation = "https://github.com/codewhen/release-workbench/tree/main/docs"
 
 [project.scripts]
 workbench = "release_workbench.interfaces.cli:main"

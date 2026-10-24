@@ -19,6 +19,7 @@ from release_workbench.application.runtime import Run
 from release_workbench.application.skip_plan import plan_skips
 from release_workbench.application.starters import TEMPLATES
 from release_workbench.domain.cards import REGISTRY
+from release_workbench.domain.models import Workflow
 from release_workbench.infrastructure.documents import (
     MAX_BYTES,
     SCHEMA,
@@ -143,7 +144,9 @@ class WorkbenchApplication:
         plan = plan_skips(workflow, marks)
 
         # Expand statically resolved workspace children for review, without altering their YAML.
-        def children(file, workflow, items, seen):
+        def children(
+            file: Path, workflow: Workflow, items: list[dict[str, Any]], seen: set[Path]
+        ) -> list[dict[str, Any]]:
             result = []
             for item in items:
                 card = workflow.graphs[item["graph"]].cards[item["card"]]

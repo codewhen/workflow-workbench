@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from release_workbench.domain.models import Workflow
+from release_workbench.domain.models import Card, Graph, Workflow
 
 FORBIDDEN = {"start", "finish", "return", "break", "continue"}
 
@@ -44,7 +44,7 @@ def plan_skips(workflow: Workflow, marks: list[dict[str, str]] | None = None) ->
             add(g, c, "explicitly selected", f"{g}/{c}")
 
     # A branch merge must postdominate both branch entries, in the same owned scope.
-    def branch_region(graph, card):
+    def branch_region(graph: Graph, card: Card) -> tuple[str | None, set[str]]:
         starts = [
             e.target
             for e in graph.edges
@@ -80,7 +80,7 @@ def plan_skips(workflow: Workflow, marks: list[dict[str, str]] | None = None) ->
         )
 
         # First common node is the one from which every other common node is reachable.
-        def reachable(start, stop=None):
+        def reachable(start: str, stop: str | None = None) -> set[str]:
             seen, pending = set(), [start]
             while pending:
                 n = pending.pop()
@@ -170,7 +170,7 @@ def plan_skips(workflow: Workflow, marks: list[dict[str, str]] | None = None) ->
 
     children = []
 
-    def describe_children(g, c, scope, seen):
+    def describe_children(g: str, c: str, scope: str, seen: set[str]) -> None:
         card = workflow.graphs[g].cards[c]
         function = card.config.get("function")
         if function in workflow.functions and function not in seen:

@@ -528,7 +528,7 @@ class Run:
                 with self.control_lock:
                     entry.update(status="cancelled", error="Stopped by user.")
                 raise
-            reasons = next(
+            reasons: list[dict[str, str]] = next(
                 (
                     x["reasons"]
                     for x in self.skip_plan["affected"]

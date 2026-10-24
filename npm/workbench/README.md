@@ -70,11 +70,11 @@ The default dashboard port is 3104. Follow the URL printed in your terminal. Use
 
 ## Versions, updates and removal
 
-An untagged package name installs the stable `latest` release. To pin version 0.18.0:
+An untagged package name installs the stable `latest` release. To pin version 0.18.1:
 
 ```bash
-npm install -g @codewhen/workbench@0.18.0
-npx @codewhen/workbench@0.18.0 serve
+npm install -g @codewhen/workbench@0.18.1
+npx @codewhen/workbench@0.18.1 serve
 ```
 
 Update to the current stable release or uninstall the global command:
@@ -107,9 +107,9 @@ npm view @codewhen/workbench dist-tags versions --json
 
 ## Documentation and source
 
-- [Installation and first project](https://github.com/codewhen/release-workbench/blob/v0.18.0/docs/user/installation.md)
-- [Complete user manual](https://github.com/codewhen/release-workbench/blob/v0.18.0/docs/index.md)
-- [Packaging and contributor instructions](https://github.com/codewhen/release-workbench/blob/v0.18.0/docs/developer/packaging.md)
+- [Installation and first project](https://github.com/codewhen/release-workbench/blob/main/docs/user/installation.md)
+- [Complete user manual](https://github.com/codewhen/release-workbench/blob/main/docs/index.md)
+- [Packaging and contributor instructions](https://github.com/codewhen/release-workbench/blob/main/docs/developer/packaging.md)
 - [Source code and issues](https://github.com/codewhen/release-workbench)
 
 You can also open **Documentation** from Home or the editor without leaving your workflow.
