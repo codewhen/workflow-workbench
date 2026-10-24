@@ -2,7 +2,7 @@
 
 ## Scope
 
-Reviewed the complete Workflow Workbench checkout at baseline commit `89ac51b`, including staged, unstaged and new files. This covers the Python domain/application/infrastructure/interfaces layers, React editor and Home, public schema and generated types, tests, packaging, CI configuration and documentation. Generated frontend assets are verified by rebuilding their reviewed sources. AirDeck application code, private plugins and the stable Workbench installation are outside this review.
+Reviewed the complete Workflow Workbench checkout at baseline commit `89ac51b`, including staged, unstaged and new files. This covers the Python domain/application/infrastructure/interfaces layers, React editor and Home, public schema and generated types, tests, packaging, CI configuration and documentation. Generated frontend assets are verified by rebuilding their reviewed sources. Consuming application code, private plugins and the stable Workbench installation are outside this review.
 
 The findings below were addressed in the working tree. Changes were made in small batches with regression checks; this review is not a claim of mathematically perfect architecture or native Windows acceptance.
 

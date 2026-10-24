@@ -98,13 +98,13 @@ class LibraryDependencies(unittest.TestCase):
         parent = self.project / "release-workbench.yaml"
         child = self.project / "workflows" / "build" / "all.yaml"
         leaf = self.project / "workflows" / "build" / "android.yaml"
-        raw = starter("AirDeck root")
-        raw["library"] = {"folder": "AirDeck", "imports": ["workflows/build/all.yaml"]}
+        raw = starter("Example root")
+        raw["library"] = {"folder": "Example", "imports": ["workflows/build/all.yaml"]}
         nested = self.parent("workflows/build/android.yaml", "../..")
-        nested["library"] = {"folder": "AirDeck/Build"}
+        nested["library"] = {"folder": "Example/Build"}
         leaf_raw = starter("Android")
         leaf_raw["workspace"] = "../.."
-        leaf_raw["library"] = {"folder": "AirDeck/Build/Android"}
+        leaf_raw["library"] = {"folder": "Example/Build/Android"}
         self.write(parent, raw)
         self.write(child, nested)
         self.write(leaf, leaf_raw)
@@ -124,7 +124,7 @@ class LibraryDependencies(unittest.TestCase):
             ],
             [str(f) for f in original],
         )
-        self.assertIn("AirDeck/Build/Android", app.library.data["folders"])
+        self.assertIn("Example/Build/Android", app.library.data["folders"])
         self.assertFalse(app.runs)
         self.assertEqual(DocumentStore(parent).read()["workflow"], raw)
         for file, text in original.items():

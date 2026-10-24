@@ -19,7 +19,7 @@ The picker opens on the computer running the server, not a remote browser device
 
 **Open YAML** uses a native file picker to register the original YAML in place. Its relative workspace paths and `library.imports` retain the original project location, so child workflows are imported recursively into their declared Home folders. No workflows execute during import. If a native picker is unavailable, use **Add project or file** and enter the original absolute YAML path.
 
-**Import a copy** uses the browser's file picker to read YAML contents, then asks for a destination project and filename. It creates a new file and refuses overwrites. A browser upload cannot supply its original absolute path or neighboring files. Use **Open YAML** for a project entry point such as AirDeck's `release-workbench.yaml`.
+**Import a copy** uses the browser's file picker to read YAML contents, then asks for a destination project and filename. It creates a new file and refuses overwrites. A browser upload cannot supply its original absolute path or neighboring files. Use **Open YAML** for a project's entry point, such as `workflow.yaml`.
 
 To edit an existing file in place, register its absolute path with **Add project or file** instead. Always bring companion scripts/child YAML files into the chosen project directory when importing a download.
 

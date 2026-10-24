@@ -14,11 +14,13 @@ FORBIDDEN = re.compile(
     r"(^|/)(coverage|private-plugins|workflows/(test|build|release))(/|$)|browser-sessions\.json"
 )
 
+STRAY_ROOT_WORKFLOWS = re.compile(r"^(?:[^/]+/)?(?:full|release-workbench)\.yaml$")
+
 
 def inspect(name: str, data: bytes) -> None:
     if FORBIDDEN.search(name):
         raise ValueError("Application data found in public artifact: " + name)
-    if name.endswith((".yaml", ".yml")) and re.search(rb"name:\s*[\'\"]?AirDeck", data):
+    if STRAY_ROOT_WORKFLOWS.fullmatch(name):
         raise ValueError("Application workflow found in public artifact: " + name)
     if name.endswith(".whl"):
         with zipfile.ZipFile(io.BytesIO(data)) as archive:

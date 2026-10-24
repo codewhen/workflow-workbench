@@ -38,7 +38,7 @@ Existing files stay in place; shared dependencies are listed once and cycles do
 not repeat imports. Missing, invalid or runtime-resolved child paths are skipped;
 re-add the parent after those files become available.
 
-Workflow YAML can declare `library.folder` (for example, `AirDeck/Test`) to
+Workflow YAML can declare `library.folder` (for example, `Example/Test`) to
 suggest a Home folder when first added. `library.imports` lists additional YAML
 paths relative to the execution workspace, so a root workflow can import a whole
 project without executing those workflows. Missing folders are created
