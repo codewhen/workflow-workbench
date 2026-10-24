@@ -70,7 +70,10 @@ server.serve_forever()
                 "Installed wheel served documentation/search/downloads without Node on server PATH, source imports or external browser networking."
             )
         finally:
-            process.send_signal(signal.SIGINT)
+            if os.name == "nt":
+                process.terminate()
+            else:
+                process.send_signal(signal.SIGINT)
             try:
                 process.wait(timeout=10)
             except subprocess.TimeoutExpired:

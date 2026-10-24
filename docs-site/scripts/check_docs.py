@@ -18,7 +18,7 @@ DOCS = ROOT / "docs"
 
 
 def main() -> None:
-    manifest = json.loads((ROOT / "docs-site/coverage.json").read_text())
+    manifest = json.loads((ROOT / "docs-site/coverage.json").read_text(encoding="utf-8"))
     errors: list[str] = []
 
     def require(condition: bool, message: str) -> None:
@@ -34,7 +34,7 @@ def main() -> None:
         )
         modes = {f["key"]: f["options"] for f in spec.fields if f.get("options")}
         require(item.get("modes") == modes, f"{kind}: undocumented mode/options")
-        navigation = (ROOT / "docs-site/.vitepress/config.mts").read_text()
+        navigation = (ROOT / "docs-site/.vitepress/config.mts").read_text(encoding="utf-8")
         require(
             bool(re.search(r"['\"]" + re.escape(kind) + r"['\"]", navigation)),
             f"{kind}: missing card navigation",
@@ -91,13 +91,13 @@ def main() -> None:
         for key, item in manifest[category].items():
             page = DOCS / item["page"]
             require(page.is_file(), f"{key}: missing feature page")
-            text = page.read_text() if page.is_file() else ""
+            text = page.read_text(encoding="utf-8") if page.is_file() else ""
             for term in item.get("terms", [key]):
                 require(term.lower() in text.lower(), f"{key}: missing explanation term {term}")
     for source, digest in manifest.get("reviewed_ui_sources", {}).items():
         file = ROOT / source
         require(
-            file.is_file() and hashlib.sha256(file.read_bytes()).hexdigest() == digest,
+            file.is_file() and hashlib.sha256(file.read_bytes().replace(b"\r\n", b"\n")).hexdigest() == digest,
             f"UI changed: review coverage/screenshots and update reviewed_ui_sources for {source}",
         )
     pages = [
@@ -119,7 +119,7 @@ def main() -> None:
             if image:
                 require(bool(label.strip()), f"{page}: screenshot needs alt text")
             if parsed.fragment and target.is_file() and target.suffix == ".md":
-                headings = re.findall(r"^#{1,6}\s+(.+)$", target.read_text(), re.M)
+                headings = re.findall(r"^#{1,6}\s+(.+)$", target.read_text(encoding="utf-8"), re.M)
                 anchors = {
                     re.sub(r"[^\w\- ]", "", heading.lower()).replace(" ", "-")
                     for heading in headings

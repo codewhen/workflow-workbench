@@ -7,15 +7,20 @@ import { readFileSync, existsSync, statSync } from 'node:fs';
 import path from 'node:path';
 const root = path.resolve(import.meta.dirname, '../..');
 const require = createRequire(path.join(root, 'frontend/package.json'));
-const { chromium, expect } = require('@playwright/test');
+const { chromium, expect, request } = require('@playwright/test');
 const base = process.env.WORKBENCH_DOCS_TEST_URL || 'http://127.0.0.1:3117';
 const server = process.env.WORKBENCH_DOCS_TEST_URL ? null : spawn(process.env.WORKBENCH_PYTHON || 'python', ['scripts/preview_docs.py'], {cwd:path.join(root,'docs-site'),stdio:['ignore','pipe','pipe']});
 let logs=''; server?.stdout.on('data',data=>logs+=data);server?.stderr.on('data',data=>logs+=data);
 let browser, hosted;
+const api = await request.newContext();
+async function fetchLocal(url) {
+  const response = await api.get(url);
+  return {ok: response.ok(), status: response.status(), json: () => response.json()};
+}
 async function ready() {
   for(let i=0;i<100;i++) {
     if(server && server.exitCode!==null) throw Error(logs);
-    try {const response=await fetch(base+'/api/library');if(response.ok)return await response.json();}catch{}
+    try {const response=await fetchLocal(base+'/api/library');if(response.ok)return await response.json();}catch{}
     await new Promise(resolve=>setTimeout(resolve,100));
   }
   throw Error('Fixture server failed: '+logs);
@@ -55,13 +60,13 @@ try {
   await expect(page.locator('.VPBackdrop')).not.toBeVisible();
   await page.screenshot({path:path.join(root,'docs-site/.vitepress/docs-mobile.png'),animations:'disabled'});
   for (const [route,status] of [['/docs/',200],['/docs/user/cards/loop',200],['/docs/examples/python.yaml',200],['/docs/examples/demo_script.py',200],['/docs/no-such-page.html',404],['/docs/%2e%2e%2fschema.json',404]]) {
-    assert.equal((await fetch(base+route)).status,status,route);
+    assert.equal((await fetchLocal(base+route)).status,status,route);
   }
   await page.goto(base+'/docs/user/inputs.html');
   await expect(page.locator('.vp-doc h1')).toHaveText('Run inputs and automatic discovery');
   await expect(page.locator('#detector-output-contract')).toBeVisible();
   for (const route of ['/docs/examples/input-discovery.yaml','/docs/examples/detect_inputs.py','/docs/developer/project-integrations.html']) {
-    assert.equal((await fetch(base+route)).status,200,route);
+    assert.equal((await fetchLocal(base+route)).status,200,route);
   }
   await page.setViewportSize({width:390,height:844});
   assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),'Input guide overflows on mobile');
@@ -105,10 +110,10 @@ try {
     await new Promise(resolve=>hosted.listen(0,'127.0.0.1',resolve));
     const url='http://127.0.0.1:'+hosted.address().port;
     await page.goto(url+'/release-workbench/user/cards/loop.html');await expect(page.locator('.vp-doc h1')).toBeVisible();
-    await search(page);assert.equal((await fetch(url+'/release-workbench/examples/script.yaml')).status,200);
+    await search(page);assert.equal((await fetchLocal(url+'/release-workbench/examples/script.yaml')).status,200);
     console.log('Passed GitHub Pages base path, local search and example download.');
   } else if (!process.env.WORKBENCH_DOCS_TEST_URL) throw Error('Build docs with build:pages before running the two-base-path acceptance check.');
   assert.deepEqual(failed,[],'Documentation client errors');
 } finally {
-  await browser?.close();hosted?.close();server?.kill('SIGINT');
+  await api.dispose();await browser?.close();hosted?.close();server?.kill('SIGINT');
 }

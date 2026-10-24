@@ -16,7 +16,7 @@ def report_files(root: Path, patterns: list[str], started: float = 0) -> dict[st
         for candidate in root.glob(pattern):
             file = candidate.resolve()
             if file.is_relative_to(root) and file.is_file() and file.stat().st_mtime >= started:
-                files[str(file.relative_to(root))] = file
+                files[file.relative_to(root).as_posix()] = file
                 if len(files) >= 1000:
                     return files
     return files
@@ -52,7 +52,7 @@ def snapshot_reports(directory: Path, state: dict[str, Any], masker: Any) -> lis
             destination.write_text(
                 masker.text(file.read_text(encoding="utf-8", errors="replace")), encoding="utf-8"
             )
-            entry["snapshot"] = str(destination.relative_to(directory))
+            entry["snapshot"] = destination.relative_to(directory).as_posix()
             total += size
         else:
             entry["note"] = "Original workspace artifact; not copied into run storage."

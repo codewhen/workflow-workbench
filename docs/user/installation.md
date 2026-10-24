@@ -47,11 +47,11 @@ npx @codewhen/workbench run --non-interactive --config checks.yaml
 
 ## Versions, updates and removal
 
-The commands above install the stable `latest` release. To install version 0.18.1 exactly:
+The commands above install the stable `latest` release. To install version 0.18.2 exactly:
 
 ```bash
-npm install -g @codewhen/workbench@0.18.1
-npx @codewhen/workbench@0.18.1 serve
+npm install -g @codewhen/workbench@0.18.2
+npx @codewhen/workbench@0.18.2 serve
 ```
 
 Unversioned npm and npx commands select `latest`. Pin an exact version when you need reproducible installations.
@@ -91,7 +91,7 @@ Use Python 3.11 or newer. Download the actual wheel artifact for the version you
 
 ```bash
 python3 -m venv .venv-workbench
-.venv-workbench/bin/python -m pip install ./release_workbench-0.18.1-py3-none-any.whl
+.venv-workbench/bin/python -m pip install ./release_workbench-0.18.2-py3-none-any.whl
 .venv-workbench/bin/workbench --version
 ```
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "release-workbench"
-version = "0.18.1"
+version = "0.18.2"
 description = "Local workflow canvas, parallel test runner and release evidence workbench"
 readme = "README.md"
 requires-python = ">=3.11"

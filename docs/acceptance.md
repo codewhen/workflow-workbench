@@ -40,3 +40,27 @@ Finish and Return expose a Result source picker for constants, Void or named car
 Global creation is available from Variable cards through Create / initialize global, which opens and focuses the declaration form. Browser tests verify a numeric global with initial value 0 is saved correctly.
 
 The full-code review and resolved findings are recorded in [the review report](reviews/2026-10-16-code-review.md). The 0.18.0a3 wheel was tested outside the source checkout with Node and PYTHONPATH unavailable. No stable installation or user workflow was migrated.
+
+
+## 0.18.2 Windows release checks (25 October 2026)
+
+Executed on native Windows with Python 3.14 and Node 24.19.0. Python lint,
+formatting and mypy passed; 177 backend tests, 28 frontend unit tests, 34
+Playwright Chromium tests, 40 executable documentation examples and both
+npm launcher tests passed. Frontend schema/type generation and build passed.
+Both documentation base paths built successfully; browser checks verified
+local search, downloads, real 404/path boundaries, preserved edits, active
+runs and hosted-base routing. Desktop and mobile screenshots were reviewed.
+
+The Windows changes resolve commands using each child's PATH, preserve UTF-8
+output, select native Git Bash, and expose report attachment paths with URL
+separators. Documentation checks read UTF-8 explicitly and compare reviewed
+source hashes after CRLF normalization without changing the review digests.
+The documentation browser harness uses Playwright HTTP requests to avoid a
+reproducible Node 24 fetch parser assertion with the local fixture server.
+
+These checks used disposable synthetic projects. Existing consumer workflows,
+active dashboards, browser sessions and installed runtime pins were not
+modified. macOS was not rerun for this patch; prior macOS results above retain
+their original scope. This entry records automated Windows acceptance and
+visual review, not certification of arbitrary consumer toolchains.

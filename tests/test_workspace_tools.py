@@ -91,6 +91,16 @@ class WorkspaceTools(unittest.TestCase):
         with self.assertRaises(ValueError):
             discover(raw, Path.cwd(), LocalServices())
 
+    def test_nested_attachment_paths_use_url_separators(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            report = root / "reports/result.json"
+            report.parent.mkdir()
+            report.write_text("{}", encoding="utf-8")
+            self.assertEqual(
+                set(report_files(root, ["reports/**/*.json"])), {"reports/result.json"}
+            )
+
     def test_attachment_paths_reject_escape_and_symlinks(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

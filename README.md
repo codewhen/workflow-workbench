@@ -2,7 +2,7 @@
 
 A free, MIT-licensed local automation workbench. Build flowcharts in the browser, keep them in YAML, execute them with Python, and inspect live output and saved HTML/JSON evidence.
 
-**Stable release 0.18.1 uses workflow schema v3.** Earlier workflow schemas are not converted automatically. Keep their files and historical evidence separate.
+**Stable release 0.18.2 uses workflow schema v3.** Earlier workflow schemas are not converted automatically. Keep their files and historical evidence separate.
 
 ## Install and run
 
@@ -23,7 +23,7 @@ For a Python-only installation, download a wheel and its checksum from [GitHub R
 
 ```bash
 python3 -m venv .venv-workbench
-.venv-workbench/bin/python -m pip install ./release_workbench-0.18.1-py3-none-any.whl
+.venv-workbench/bin/python -m pip install ./release_workbench-0.18.2-py3-none-any.whl
 .venv-workbench/bin/workbench create --port 3105
 ```
 
@@ -135,7 +135,7 @@ updates, removal and troubleshooting.
 For a Python-only tool installation from a downloaded wheel:
 
 ```bash
-uv tool install ./release_workbench-0.18.1-py3-none-any.whl
+uv tool install ./release_workbench-0.18.2-py3-none-any.whl
 workbench
 ```
 

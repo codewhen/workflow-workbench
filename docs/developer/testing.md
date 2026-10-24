@@ -39,7 +39,7 @@ Python tests cover contracts, compiler rejection, Boolean returns, loop bounds, 
 ```bash
 .venv/bin/python -m build
 python3 -m venv /tmp/workbench-wheel-check
-/tmp/workbench-wheel-check/bin/python -m pip install ./dist/release_workbench-0.18.1-py3-none-any.whl
+/tmp/workbench-wheel-check/bin/python -m pip install ./dist/release_workbench-0.18.2-py3-none-any.whl
 mkdir /tmp/workbench-wheel-project
 cd /tmp/workbench-wheel-project
 /tmp/workbench-wheel-check/bin/workflow-workbench init --template python --name "Installed wheel"

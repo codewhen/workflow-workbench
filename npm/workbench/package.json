@@ -1,6 +1,6 @@
 {
   "name": "@codewhen/workbench",
-  "version": "0.18.1",
+  "version": "0.18.2",
   "description": "Local visual workflow automation with a bundled Python engine",
   "license": "MIT",
   "bin": {

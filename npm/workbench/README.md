@@ -70,11 +70,11 @@ The default dashboard port is 3104. Follow the URL printed in your terminal. Use
 
 ## Versions, updates and removal
 
-An untagged package name installs the stable `latest` release. To pin version 0.18.1:
+An untagged package name installs the stable `latest` release. To pin version 0.18.2:
 
 ```bash
-npm install -g @codewhen/workbench@0.18.1
-npx @codewhen/workbench@0.18.1 serve
+npm install -g @codewhen/workbench@0.18.2
+npx @codewhen/workbench@0.18.2 serve
 ```
 
 Update to the current stable release or uninstall the global command:
