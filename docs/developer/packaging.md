@@ -2,6 +2,40 @@
 
 Build application and documentation assets before making a wheel. End users should need only Python for a wheel installation; the npm wrapper additionally requires Node. Neither installation requires Node to build documentation at runtime.
 
+## Cross-platform npm release command
+
+Use Python 3.11+ in the project virtual environment and Node.js 22+. Install
+release tooling once with `python -m pip install -e '.[dev]'` in that environment.
+Log in with `npm login` before publishing. Keep `pyproject.toml`,
+`src/release_workbench/__init__.py` and `npm/workbench/package.json` versions aligned.
+The prepack step derives the wheel filename from the npm version automatically.
+
+Windows PowerShell:
+
+```powershell
+.\.venv\Scripts\python.exe tools/publish_npm.py --dry-run
+.\.venv\Scripts\python.exe tools/publish_npm.py
+```
+
+macOS Terminal:
+
+```bash
+.venv/bin/python tools/publish_npm.py --dry-run
+.venv/bin/python tools/publish_npm.py
+```
+
+The script works from any current directory when given its absolute path. It
+installs locked frontend/docs dependencies, runs Python lint/types/tests,
+frontend unit/build/browser checks, docs checks/examples/both builds/browser
+checks, builds Python distributions and the npm archive, checks generic
+package boundaries, and writes `dist/SHA256SUMS-<version>`. Publication uses
+that exact verified archive with public access and the `latest` npm tag.
+`--dry-run` performs npm's publication dry run without uploading;
+`--pack-only` stops after creating and verifying the archive. Use `--tag next`
+for another npm distribution tag. A failed command stops the release. npm
+credentials and interactive 2FA remain managed by npm. The script does not
+bump versions, create commits, push Git branches or create Git tags.
+
 ## Build order
 
 ```bash
