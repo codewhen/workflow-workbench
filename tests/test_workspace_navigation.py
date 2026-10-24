@@ -32,7 +32,7 @@ class WorkspaceNavigation(unittest.TestCase):
                 "config": {"path": "child.yaml", "inputs": {}},
             },
         )
-        self.parent.write_text(render_document(self.raw))
+        self.parent.write_text(render_document(self.raw), encoding="utf-8", newline="\n")
         self.app = WorkbenchApplication(self.root, self.root / "storage")
         self.key = self.app.library.register(self.parent)["id"]
 
@@ -112,7 +112,7 @@ class WorkspaceNavigation(unittest.TestCase):
         }
         self.child.write_text(render_document(child))
         self.raw["graphs"]["main"]["edges"] = [edge("start", "call"), edge("call", "finish")]
-        self.parent.write_text(render_document(self.raw))
+        self.parent.write_text(render_document(self.raw), encoding="utf-8", newline="\n")
         record = DocumentStore(self.parent).read()
         self.app.mutation("run", self.key, {"revision": record["revision"]})
         parent = self.app.runs[self.key]

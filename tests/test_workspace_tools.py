@@ -98,10 +98,15 @@ class WorkspaceTools(unittest.TestCase):
             workspace.mkdir()
             (workspace / "report.json").write_text("{}")
             (root / "secret.json").write_text("secret")
-            (workspace / "escape.json").symlink_to(root / "secret.json")
-            self.assertEqual(set(report_files(workspace, ["*.json"])), {"report.json"})
             with self.assertRaises(ValueError):
                 report_files(workspace, ["../*.json"])
+            try:
+                (workspace / "escape.json").symlink_to(root / "secret.json")
+            except OSError as error:
+                if getattr(error, "winerror", None) == 1314:
+                    self.skipTest("Windows symlink privilege requires Developer Mode or elevation")
+                raise
+            self.assertEqual(set(report_files(workspace, ["*.json"])), {"report.json"})
 
     def test_json_capture_rejects_truncated_output(self):
         from release_workbench.domain.models import Card

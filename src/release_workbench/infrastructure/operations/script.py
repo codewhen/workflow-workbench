@@ -22,6 +22,6 @@ class ScriptHandler(ProgramHandler):
             raise ContractError("Choose Python or Bash.")
         return [
             executable,
-            str(workspace_path(root, card.config["path"])),
+            workspace_path(root, card.config["path"]).as_posix(),
             *card.config.get("arguments", []),
         ]

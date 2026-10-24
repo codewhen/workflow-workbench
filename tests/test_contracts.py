@@ -68,7 +68,7 @@ class Contracts(unittest.TestCase):
         base = Path(__file__).parents[1] / "src/release_workbench"
         for layer in ("domain", "application"):
             for file in (base / layer).rglob("*.py"):
-                for node in ast.walk(ast.parse(file.read_text())):
+                for node in ast.walk(ast.parse(file.read_text(encoding="utf-8"))):
                     if isinstance(node, ast.Import):
                         for alias in node.names:
                             self.assertNotIn(

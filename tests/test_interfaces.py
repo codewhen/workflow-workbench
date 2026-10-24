@@ -1,4 +1,5 @@
 import json
+import os
 import tempfile
 import threading
 import unittest
@@ -85,7 +86,8 @@ class Interfaces(unittest.TestCase):
         self.assertFalse(restarted.sessions.accepts("wrong-token"))
         self.assertFalse(restarted.sessions.accepts(None))
         token_file = self.root / "storage" / "browser-sessions.json"
-        self.assertEqual(token_file.stat().st_mode & 0o777, 0o600)
+        if os.name != "nt":
+            self.assertEqual(token_file.stat().st_mode & 0o777, 0o600)
 
     def test_report_escape_unknown_and_host_rejected(self):
         for path in ("/reports/%2e%2e/%2e%2e/test.yaml", "/api/missing", "/not-a-page"):

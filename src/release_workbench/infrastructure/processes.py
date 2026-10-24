@@ -17,6 +17,8 @@ import psutil
 
 from release_workbench.domain.values import ContractError
 
+from .host import process_environment, program_arguments
+
 MAX_OUTPUT = 1024 * 1024
 
 
@@ -36,8 +38,10 @@ class ProcessAdapter:
         options: dict[str, Any] = (
             {"start_new_session": True} if os.name != "nt" else {"creationflags": 512}
         )
+        environment = process_environment(environment)
+        arguments = program_arguments(argv, cwd, environment)
         process = await asyncio.create_subprocess_exec(
-            *argv,
+            *arguments,
             cwd=cwd,
             env=environment,
             stdin=asyncio.subprocess.PIPE,
@@ -131,7 +135,7 @@ class ProcessAdapter:
                 child.kill()
             except psutil.Error:
                 pass
-        if os.name != "nt":
+        if sys.platform != "win32":
             try:
                 os.killpg(process.pid, signal.SIGKILL)
             except ProcessLookupError:

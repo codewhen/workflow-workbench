@@ -57,3 +57,23 @@ Run from outside the source checkout with PYTHONPATH unset. Verify output/result
 4. Commit the tested source and publish the release with those assets. Create a Git tag only with explicit user authorization. Mark stable releases as latest; mark preview releases as prereleases. Preserve historical evidence.
 5. Use disposable library/storage for release verification. Do not change existing projects, active dashboards or consumer pins as a side effect of publishing.
 6. Native Windows tests must pass before removing the unverified label. Do not imply production certification from macOS results.
+
+## Native Windows process verification
+
+Workbench inherits the launcher environment; `runtime:python` selects the
+running Workbench Python (including npm-managed installations). It does not
+install or guess application-specific Java, Go, Flutter or compiler toolchains.
+Configure those in the launching terminal or workflow environment.
+
+The process adapter resolves Windows commands against the child workflow PATH,
+normalizes case-insensitive environment overrides, and defaults Python output
+to unbuffered UTF-8. Explicit Python environment settings are preserved. Bash
+script cards select native Git Bash instead of the Windows/WSL launcher and
+pass script paths with forward slashes. Explicit executable paths remain
+authoritative. No shell command string is constructed from program arguments.
+
+Run `python -m unittest tests.test_process_host -v` on Windows for real
+child-PATH, batch-wrapper, Git Bash, spaces and Unicode checks. The full Python
+suite also runs on Windows; symlink-specific checks explicitly skip when the
+account lacks symlink privilege. Native macOS, browser, signing and application
+toolchain acceptance are separate checks.
